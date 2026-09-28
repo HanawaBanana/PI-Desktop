@@ -29,8 +29,11 @@ import {
   IconExternal,
   IconFileText,
   IconFolder,
+  IconSearch,
 } from "../icons";
 import { WorkTabEmpty } from "./WorkTabEmpty";
+import { FileFindBar } from "./FileFindBar";
+import { useRenderedFind } from "../../hooks/use-rendered-find";
 
 const VIEWER_LINE_CAP = 5000;
 
@@ -165,6 +168,24 @@ export function FilesTab() {
   const [selectedMimeType, setSelectedMimeType] = useState<string | undefined>();
   const [file, setFile] = useState<FsReadResult | null>(null);
   const [fileError, setFileError] = useState(false);
+
+  // Markdown preview search. The bar, its matches, and the highlight registry
+  // belong to the previewed document rather than to the viewer's own state, so
+  // they live in one hook that the viewer only wires up.
+  const markdownPreview =
+    selected !== null && file?.kind === "text" && isMarkdownPath(selected);
+  const previewRef = useRef<HTMLDivElement | null>(null);
+  const viewerBodyRef = useRef<HTMLDivElement | null>(null);
+  const findInputRef = useRef<HTMLInputElement | null>(null);
+  const findToggleRef = useRef<HTMLButtonElement | null>(null);
+  const find = useRenderedFind({
+    enabled: markdownPreview,
+    containerRef: previewRef,
+    scrollRef: viewerBodyRef,
+    contentVersion: file?.content ?? null,
+    inputRef: findInputRef,
+    returnFocusRef: findToggleRef,
+  });
 
   // Workspace switches reset all browsing state. Guarded so it only fires on
   // an actual root change: an unconditional [root] effect also runs on the
@@ -346,6 +367,19 @@ export function FilesTab() {
             {selected}
           </span>
           {file && <span className="file-viewer-size">{formatSize(file.size)}</span>}
+          {markdownPreview && (
+            <TooltipButton
+              ref={findToggleRef}
+              type="button"
+              className={cx("icon-btn icon-btn-square", find.open && "active")}
+              tooltip={t("panel.files.find")}
+              ariaLabel={t("panel.files.find")}
+              aria-pressed={find.open}
+              onClick={find.toggle}
+            >
+              <IconSearch size={14} />
+            </TooltipButton>
+          )}
           <TooltipButton
             type="button"
             className="icon-btn icon-btn-square"
@@ -356,13 +390,24 @@ export function FilesTab() {
             <IconExternal size={14} />
           </TooltipButton>
         </div>
-        <div className="file-viewer-body">
+        {find.open && markdownPreview && (
+          <FileFindBar
+            inputRef={findInputRef}
+            query={find.query}
+            index={find.index}
+            count={find.count}
+            onQueryChange={find.setQuery}
+            onStep={find.step}
+            onClose={find.close}
+          />
+        )}
+        <div className="file-viewer-body" ref={viewerBodyRef}>
           {fileError ? (
             <WorkTabEmpty icon={IconFileText} title={t("panel.files.error")} />
           ) : !file ? (
             <div className="file-tree-note">{t("panel.files.loading")}</div>
           ) : file.kind === "text" && isMarkdownPath(selected) ? (
-            <div className="file-viewer-markdown prose-chat">
+            <div className="file-viewer-markdown prose-chat" ref={previewRef}>
               <Markdown source={file.content ?? ""} baseDir={fileDirOf(selected)} />
             </div>
           ) : file.kind === "text" ? (

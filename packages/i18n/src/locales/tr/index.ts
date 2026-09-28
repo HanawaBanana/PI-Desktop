@@ -1829,6 +1829,13 @@ sklm: {
       binary: "İkili dosya — önizleme yok",
       tooLarge: "Dosya önizlemek için çok büyük",
       openFailed: "Dosya varsayılan uygulamayla açılamadı.",
+      find: "Önizlemede ara",
+      findPlaceholder: "Ara",
+      findPrevious: "Önceki eşleşme",
+      findNext: "Sonraki eşleşme",
+      findClose: "Aramayı kapat",
+      findCounter: "{{current}} / {{total}}",
+      findNoMatch: "Eşleşme yok",
     },
   },
   palette: {

@@ -5495,6 +5495,8 @@ eleven-tool-round desktop paths are verified by
 | 品质（崩溃上报） | E2E-PLUGIN-crash-report-names-the-exit-code |
 | F — 持久化（存储的模型绑定数组） | E2E-PROVIDER-stored-binding-array-reads-entry-by-entry |
 | 品质（存储的模型绑定数组） | E2E-PROVIDER-stored-binding-array-reads-entry-by-entry |
+| D — 工作区（宿主文件标签页预览搜索） | E2E-FILE-markdown-preview-find |
+| 品质（宿主文件标签页预览搜索） | E2E-FILE-markdown-preview-find |
 
 `US-UI-*` 视觉场景（§UI shell 视觉场景）追踪到
 [决策日志 §D](/zh-CN/spec/08-meta/decisions-log) 中的法典平价决策
@@ -9043,3 +9045,24 @@ the latest destination. These assertions measure work counts, not device FPS.
 - **验收：** 缓存路径、迁移和清理单测通过；Windows task-candidate 验证应覆盖更新源传输、安装器交接和文件系统行为，且不连接真实发布源。
 - **里程碑：** M6+
 - **状态：** 单测和源码契约覆盖（`update-cache.test.mjs`、`auto-update.test.mjs`）；仍需 Windows 安装器/E2E 验证。
+
+#### E2E-FILE-markdown-preview-find：宿主文件标签页的 Markdown 预览可搜索内容
+
+- **前提：** 一份 Markdown 文档在标题、粗体词、行内代码和围栏代码块里各重复出现同一个词，
+  并在宿主文件标签页中打开——会话临时目录或附件路径，或在内置文件管理器视图被禁用时的项目文件。
+- **步骤：** 1）确认只有该文档的查看器头部出现搜索控件。2）激活它，输入重复出现的词，读计数。
+  3）按 Enter、再按 Shift+Enter，然后点击上一个与下一个按钮。4）把词换成不存在的词，再清空输入框。
+  5）按 Escape 关闭，重新打开搜索条，并在同一面板里打开一个 `.ts` 文件、一张图片和一个二进制文件。
+  6）重新打开搜索条后，从文件树中打开第二份 Markdown 文档。
+- **预期：** 渲染后的预览里每一处匹配都被高亮，当前匹配额外强调并滚动到查看器正文中部，
+  计数按当前语言显示 `n of m`。前后跳转在两端循环；没有匹配时显示空结果文案且两个跳转按钮均禁用。
+  清空输入框会移除全部高亮与计数文字但不关闭搜索条；Escape 关闭搜索条并把焦点交还打开它的控件。
+  非 Markdown 文件和文件树上都没有该控件，图片、二进制、超大或读取失败的文档都不会残留高亮。
+  打开另一份 Markdown 文档会按新文档重新计数，而不是沿用上一份；搜索不会修改文件、过滤文件树，
+  也不会作为状态留到下次打开。
+- **规格：** `04-ux/08-component-spec.md` §5.4、§5.5
+- **验收：** D（工作区）、品质
+- **里程碑：** M6+
+- **状态：** 单测覆盖（`apps/desktop/test/file-viewer-find.test.mjs`：跨行内元素的匹配定位、
+  两端循环跳转、输入框按键契约、每个语言目录的本地化文案，以及查看器接线）；端到端旅程仍为草稿
+  （仅在该界面发生变更时，在有条件的环境中运行）。

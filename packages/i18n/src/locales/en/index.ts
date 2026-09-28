@@ -1842,6 +1842,13 @@ sklm: {
       binary: "Binary file — preview unavailable",
       tooLarge: "File is too large to preview",
       openFailed: "Could not open the file with its default application.",
+      find: "Search in preview",
+      findPlaceholder: "Search",
+      findPrevious: "Previous match",
+      findNext: "Next match",
+      findClose: "Close search",
+      findCounter: "{{current}} of {{total}}",
+      findNoMatch: "No matches",
     },
   },
   palette: {

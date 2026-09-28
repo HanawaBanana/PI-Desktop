@@ -96,7 +96,7 @@ test("session result rendering keeps literal snippets safe and selectable in eve
       assert.ok(html.includes(catalog.search.assistant), locale);
       assert.ok(html.includes(catalog.search.archived), locale);
     }
-    const { transcriptSearchRanges } = await server.ssrLoadModule("/src/lib/transcript-search-highlight.ts");
+    const { renderedTextRanges } = await server.ssrLoadModule("/src/lib/rendered-text-search.ts");
     const originalDocument = globalThis.document;
     const originalFilter = globalThis.NodeFilter;
     try {
@@ -114,7 +114,7 @@ test("session result rendering keeps literal snippets safe and selectable in eve
           setEnd(node, offset) { this.endContainer = node; this.endOffset = offset; },
         }),
       };
-      const ranges = transcriptSearchRanges({}, "needle");
+      const ranges = renderedTextRanges({}, "needle");
       assert.equal(ranges.length, 1);
       assert.equal(ranges[0].startContainer, textNodes[1]);
       assert.equal(ranges[0].startOffset, 0);

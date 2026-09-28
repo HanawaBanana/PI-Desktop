@@ -872,3 +872,63 @@
   max-height: 100%;
   border-radius: var(--radius-sm);
 }
+
+/*
+ * Find bar for the rendered Markdown preview. It sits between the viewer
+ * header and the scrolling body, so a match can be scrolled to without taking
+ * the field with it.
+ */
+.file-find {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: var(--ds-bg-dock);
+  border-bottom: 1px solid var(--ds-border-subtle);
+}
+
+.file-find-glyph {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--ds-text-muted);
+}
+
+.file-find-input {
+  min-width: 0;
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--ds-text-primary);
+  font-size: var(--text-xs-plus);
+  outline: none;
+}
+
+.file-find-input::placeholder {
+  color: var(--ds-text-muted);
+}
+
+/* The field is the one clear affordance here; a native cancel button is not. */
+.file-find-input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.file-find-count {
+  flex: 0 0 auto;
+  color: var(--ds-text-muted);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Search navigation paints the original nodes, so the active match is a
+ * second registry rather than a rewritten element. */
+::highlight(rendered-find) {
+  color: var(--ds-text-primary);
+  background-color: color-mix(in srgb, var(--ds-accent) 30%, transparent);
+}
+
+::highlight(rendered-find-active) {
+  color: var(--ds-text-primary);
+  background-color: color-mix(in srgb, var(--ds-accent) 65%, transparent);
+}

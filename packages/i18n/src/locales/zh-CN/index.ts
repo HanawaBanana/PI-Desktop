@@ -1810,6 +1810,13 @@ sklm: {
       binary: "二进制文件，无法预览",
       tooLarge: "文件过大，无法预览",
       openFailed: "无法使用系统默认应用打开文件。",
+      find: "在预览中搜索",
+      findPlaceholder: "搜索",
+      findPrevious: "上一个匹配",
+      findNext: "下一个匹配",
+      findClose: "关闭搜索",
+      findCounter: "第 {{current}} / {{total}} 个",
+      findNoMatch: "没有匹配项",
     },
   },
   palette: {

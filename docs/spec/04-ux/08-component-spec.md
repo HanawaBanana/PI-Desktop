@@ -1198,6 +1198,20 @@ entirely inside the plugin's isolated page:
   the divider restores the default 360px width, clamped by the same live
   minimum and three-column budget, so a reset never breaches the MainChat
   floor.
+- Host file tab preview search: a Markdown document rendered in the host file
+  tab — the surface scratch and attachment paths take, and the fallback whenever
+  the bundled file view is not launchable — offers an in-preview find bar beside
+  its reveal action. It searches the text that preview actually painted, in
+  document order and case-insensitively, and paints every match on the original
+  nodes through the CSS custom-highlight registry instead of rewriting the DOM,
+  with the active match emphasized and aligned to the middle of the scrolling
+  body. Enter steps forward, Shift+Enter steps back, both wrap at either end,
+  and the counter reads the active position against the total; an empty result
+  disables both steps and says so. The control is offered only for that preview
+  — a code, image, binary, oversized, or failed document never shows it — and a
+  preview that stops being searchable closes the bar and clears its highlights.
+  Search stays a view aid over rendered content: it never filters the source,
+  edits the document, or reaches the file list behind it.
 - Persistence: all session contexts are renderer runtime state only. On app
   startup, open state, tabs, active-tab selection, file requests, and Browser
   resources reset; only the committed preferred `{width}` remains in
@@ -1226,6 +1240,12 @@ entirely inside the plugin's isolated page:
   Arrow/Home/End keyboard control. Escape cancels an active pointer gesture.
 - Every resource close and the viewport-fixed panel toggle expose localized
   names. The toggle uses `aria-pressed` for open versus closed.
+- The Markdown-preview find bar is a labelled `role="search"` with a labelled
+  field, localized previous, next, and close buttons, and its match counter as a
+  polite live region. Activating the viewer's search control moves focus into
+  the field; Escape closes the bar and returns focus to that control, which
+  carries `aria-pressed` for its open state. Both step buttons are disabled while
+  the field matches nothing.
 
 ### 5.6 MVP constraints
 

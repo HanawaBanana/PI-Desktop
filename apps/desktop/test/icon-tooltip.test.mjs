@@ -41,6 +41,9 @@ test("icon-only actions expose localized hover tooltips", () => {
     ["components/Sidebar.tsx", "nav.sortSessions"],
     ["components/workpanel/FilesTab.tsx", "panel.files.back"],
     ["components/workpanel/FilesTab.tsx", "panel.files.reveal"],
+    ["components/workpanel/FileFindBar.tsx", "panel.files.findPrevious"],
+    ["components/workpanel/FileFindBar.tsx", "panel.files.findNext"],
+    ["components/workpanel/FileFindBar.tsx", "panel.files.findClose"],
   ]) {
     assertLocalizedIconTooltip(relativePath, key);
   }

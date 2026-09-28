@@ -8770,7 +8770,9 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 | C — Conversation & stream (loop context ownership) | E2E-RUNTIME-loop-context-ownership |
 | Quality (loop context ownership) | E2E-RUNTIME-loop-context-ownership |
 | G — Plugin host lifecycle (crash report) | E2E-PLUGIN-crash-report-names-the-exit-code |
-| Quality (crash report) | E2E-PLUGIN-crash-report-names-the-exit-code |
+ | Quality (crash report) | E2E-PLUGIN-crash-report-names-the-exit-code |
+ | D — Workspace (host file tab preview search) | E2E-FILE-markdown-preview-find |
+ | Quality (host file tab preview search) | E2E-FILE-markdown-preview-find |
 
 The `US-UI-*` visual scenarios (§UI shell visual scenarios) trace to the
 Codex parity decisions in [decisions-log §D](../08-meta/decisions-log.md)
@@ -11913,6 +11915,40 @@ are withdrawn with ADR 0165.
 - **Status**: Unit-covered (`chat-links.test.mjs`,
   `verified-chat-files.test.mjs`, `transcript-file-chips.test.mjs`,
   `markdown-prose-style.test.mjs`); full UI journey Draft (run only in a capable environment when this surface changes)
+
+#### E2E-FILE-markdown-preview-find
+
+- **Preconditions**: A Markdown document repeats one term in a heading, a bolded
+  word, an inline code span, and a fenced code block, and opens in the host file
+  tab — a session-scratch or attachment path, or a project file while the bundled
+  File Manager view is disabled.
+- **Steps**:
+  1. Confirm the viewer header offers the search control for this document only.
+  2. Activate it, type the repeated term, and read the counter.
+  3. Press Enter, then Shift+Enter, then the previous and next buttons.
+  4. Replace the term with one that does not occur, then clear the field.
+  5. Press Escape, reopen the bar, and open a `.ts` file, an image, and a binary
+     file in the same panel.
+  6. With the bar open again, open a second Markdown document from the file tree.
+- **Expected**: Every match is highlighted in the rendered preview, the active
+  one is emphasized and aligned to the middle of the viewer body, and the counter
+  reads `n of m` in the active language. Stepping wraps at both ends; a term with
+  no match shows the empty-result copy with both steps disabled. Clearing the
+  field removes the highlights and the counter text without closing the bar, and
+  Escape closes the bar and returns focus to the control that opened it. The
+  control is absent on a non-Markdown file and on the file tree, and no image,
+  binary, oversized, or failed document paints a leftover highlight. Opening
+  another Markdown document re-counts against that document instead of the
+  previous one, and the search never edits the file, filters the tree, or
+  survives as state on the next open.
+- **Specs linked**: `04-ux/08-component-spec.md` §5.4, §5.5
+- **Acceptance**: D (workspace), Quality
+- **Milestone**: M6+
+- **Status**: Unit-covered (`apps/desktop/test/file-viewer-find.test.mjs`: match
+  location across inline elements, wrap-around stepping, the field's key
+  contract, the localized copy in every catalog, and the viewer wiring); the full
+  UI journey is Draft (run only in a capable environment when this surface
+  changes).
 
 #### E2E-185: External URL opens stay on http(s) and mailto
 

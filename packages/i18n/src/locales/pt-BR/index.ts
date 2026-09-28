@@ -1774,7 +1774,14 @@ export const ptBR = {
       reveal: "Revelar no Finder",
       binary: "Arquivo binário — pré-visualização indisponível",
       tooLarge: "O arquivo é grande demais para pré-visualização",
-      openFailed: "Não foi possível abrir o arquivo com o aplicativo padrão."
+      openFailed: "Não foi possível abrir o arquivo com o aplicativo padrão.",
+      find: "Pesquisar na pré-visualização",
+      findPlaceholder: "Pesquisar",
+      findPrevious: "Correspondência anterior",
+      findNext: "Próxima correspondência",
+      findClose: "Fechar a pesquisa",
+      findCounter: "{{current}} de {{total}}",
+      findNoMatch: "Nenhuma correspondência"
     }
   },
   palette: {

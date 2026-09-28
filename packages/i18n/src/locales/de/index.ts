@@ -1823,7 +1823,14 @@ sklm: {
       "reveal": "Im Finder anzeigen",
       "binary": "Binärdatei – Vorschau nicht verfügbar",
       "tooLarge": "Datei ist zu groß für die Vorschau",
-      "openFailed": "Die Datei konnte nicht mit der Standardanwendung geöffnet werden."
+      "openFailed": "Die Datei konnte nicht mit der Standardanwendung geöffnet werden.",
+      "find": "In der Vorschau suchen",
+      "findPlaceholder": "Suchen",
+      "findPrevious": "Vorheriger Treffer",
+      "findNext": "Nächster Treffer",
+      "findClose": "Suche schließen",
+      "findCounter": "{{current}} von {{total}}",
+      "findNoMatch": "Keine Treffer"
     }
   },
   "palette": {

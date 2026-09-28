@@ -1810,6 +1810,13 @@ sklm: {
       binary: "二進位制檔案，無法預覽",
       tooLarge: "檔案過大，無法預覽",
       openFailed: "無法使用系統預設應用程式開啟檔案。",
+      find: "在預覽中搜尋",
+      findPlaceholder: "搜尋",
+      findPrevious: "上一個符合項",
+      findNext: "下一個符合項",
+      findClose: "關閉搜尋",
+      findCounter: "第 {{current}} / {{total}} 個",
+      findNoMatch: "沒有符合項",
     },
   },
   palette: {

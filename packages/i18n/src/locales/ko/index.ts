@@ -1839,6 +1839,13 @@ sklm: {
       binary: "바이너리 파일 — 미리 볼 수 없음",
       tooLarge: "파일이 너무 커서 미리 볼 수 없음",
       openFailed: "기본 앱으로 파일을 열 수 없습니다.",
+      find: "미리보기에서 검색",
+      findPlaceholder: "검색",
+      findPrevious: "이전 일치",
+      findNext: "다음 일치",
+      findClose: "검색 닫기",
+      findCounter: "{{total}}개 중 {{current}}번째",
+      findNoMatch: "일치 항목 없음",
     },
   },
   palette: {
