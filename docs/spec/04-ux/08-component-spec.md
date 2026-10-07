@@ -733,6 +733,28 @@ controls.
 | Active group | exactly one group reflects the selected host workspace |
 | Task state | In-progress, selected, completed, and failed indicators update by session without replacing the visible transcript; precedence is in-progress, selected, then terminal outcome |
 
+### 3.9a Project status contract (issue #1441)
+
+A project header reports what its own conversations and scheduled runs are doing
+even while the group is collapsed. The aggregate reads state the renderer
+already holds — the row's listed conversations, the unfiltered session list (an
+automation transcript stays in the store even though the sidebar drops it from
+the list), the running map, the unread outcome map, the pending
+permission/ask/plan sets, and the broadcast of scheduled runs — so a collapsed
+project needs no host read beyond the run broadcast.
+
+| Element | Contract |
+|---|---|
+| Status control | One trailing button on the project header, present only while that project has something to report; expanding and collapsing by clicking the header keeps its own semantics and hit area |
+| Running | Warning dot beside the count of that project's running conversations; the accessible name states the whole summary, never a bare number |
+| Scheduled runs | Counted beside the conversations and labelled separately (`Scheduled 1`), because an automation transcript never returns to the conversation list (#1298) |
+| Waiting for the reader | The session row's own purple `permission` colour, taking precedence over the running dot; a pending permission, ask, or Plan all count |
+| Results | Success check or failure alert with the unread count, read through the session row's own not-looked-at-yet rule, so opening a conversation clears its share of the project count |
+| Settled | The whole control takes the success tone once nothing of that project runs and at least one result is unread |
+| Partially settled | A result and a running count coexist: the count keeps running and the summary states the finished count as well |
+| Activation | Reveals the group and opens the conversation that waits for the reader first, otherwise the first running conversation; a project with results only reveals the group |
+| Theme and motion | Semantic tokens only, state carried by a glyph and a number as well as colour, and no state adds motion |
+
 ### 3.10 Local profile footer contract
 
 The expanded sidebar ends with a WorkBuddy-inspired local identity cluster.
@@ -4222,6 +4244,10 @@ TASKS (2)                     │ Nightly dependency check   [Enabled] [Run now]
   labelled with the route and, when the row's own origin is known, the task it
   belongs to; returning restores that task and that run, and steps back through
   the navigation history when this route is directly behind the conversation.
+- A run is announced to the renderer when the host admits it — manually or from
+  the scheduler — and again when it settles or fails to dispatch, which is how
+  its project's header in the sidebar counts it and reports its result while the
+  automation transcript stays out of the conversation list. See §3.9a.
 - Above 900px the task column sticks below the titlebar band; below it the
   column stacks above the page.
 - Motion: colour and chevron transitions only, disabled under
