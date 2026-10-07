@@ -29,6 +29,7 @@ import {
   sessionPinned,
 } from "../lib/sidebar-session-groups";
 import { listableSessions } from "../lib/session-origin";
+import { projectRunningStatus } from "../lib/sidebar-project-status";
 import {
   composerDropItems,
   hasComposerFileDrag,
@@ -238,6 +239,22 @@ export function Sidebar({
   const runningSessions = useAppStore((s) => s.runningSessions);
   const sessionOutcomes = useAppStore((s) => s.sessionOutcomes);
   const pendingPermissions = useAppStore((s) => s.pendingPermissions);
+  const pendingAsks = useAppStore((s) => s.pendingAsks);
+  const pendingPlans = useAppStore((s) => s.pendingPlans);
+  const scheduledRuns = useAppStore((s) => s.scheduledRuns);
+
+  /** Sessions that cannot continue until the reader answers (issue #1441). */
+  const attentionSessionIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const [sessionId, queue] of Object.entries(pendingPermissions)) {
+      if (queue.length > 0) ids.add(sessionId);
+    }
+    for (const [sessionId, queue] of Object.entries(pendingAsks)) {
+      if (queue.length > 0) ids.add(sessionId);
+    }
+    for (const sessionId of Object.keys(pendingPlans)) ids.add(sessionId);
+    return ids;
+  }, [pendingPermissions, pendingAsks, pendingPlans]);
   const setPage = useAppStore((s) => s.setPage);
   const navBack = useAppStore((s) => s.navBack);
   const canNavBack = useAppStore((s) => s.canNavBack);
@@ -1822,6 +1839,60 @@ export function Sidebar({
 
   const renderProjectGroup = (entry: ProjectEntry) => {
     const collapsedProject = entry.meta.collapsed ?? projectCollapsed[entry.key] ?? false;
+
+    // A collapsed project still reports what it is doing (issue #1441). The
+    // aggregate reads state this row already subscribes to: its own listed
+    // sessions, the unfiltered session list (scheduled runs stay in the store),
+    // the running map, unread outcomes, and the pending interactive prompts.
+    const status = projectRunningStatus({
+      sessions: entry.sessions,
+      allSessions: sessions,
+      projectPath: entry.path,
+      runningSessions,
+      outcomes: sessionOutcomes,
+      attentionSessionIds,
+      scheduledRuns: Object.values(scheduledRuns),
+    });
+    const statusParts: string[] = [];
+    if (status.needsAttention > 0) {
+      statusParts.push(t("nav.projectStatusAttention", { count: status.needsAttention }));
+    }
+    if (status.running > 0) {
+      statusParts.push(t("nav.projectStatusRunning", { count: status.running }));
+    }
+    if (status.scheduledRunning > 0) {
+      statusParts.push(t("nav.projectStatusScheduled", { count: status.scheduledRunning }));
+    }
+    if (status.failed > 0) {
+      statusParts.push(t("nav.projectStatusFailed", { count: status.failed }));
+    }
+    if (status.finished > 0 && !status.settled) {
+      statusParts.push(t("nav.projectStatusFinished", { count: status.finished }));
+    }
+    if (status.settled) {
+      statusParts.push(t("nav.projectStatusSettled", { count: status.finished + status.failed }));
+    }
+    if (status.partiallySettled) {
+      statusParts.push(
+        t("nav.projectStatusPartial", {
+          finished: status.finished + status.failed,
+          running: status.total,
+        }),
+      );
+    }
+    const statusSummary = statusParts.join(" · ");
+    // Opening the status lands on the session that needs the reader first.
+    const statusTarget =
+      entry.sessions.find((session) => attentionSessionIds.has(session.id)) ??
+      entry.sessions.find((session) => runningSessions[session.id] === true);
+    const statusTone =
+      status.failed > 0
+        ? "failed"
+        : status.needsAttention > 0
+          ? "attention"
+          : status.settled
+            ? "settled"
+            : "running";
     const projectId = projectDomId(entry.key);
     const isMenuOpen = projectMenu === entry.key;
 
@@ -1968,6 +2039,45 @@ export function Sidebar({
             {". "}
             {t("project.reorder", { name: entry.name, defaultValue: "Reorder {{name}}" })}
           </span>
+          {statusSummary ? (
+            <button
+              type="button"
+              className={`project-status ${statusTone}`}
+              data-action="project-status"
+              aria-label={t("nav.projectStatusLabel", { summary: statusSummary })}
+              title={statusSummary}
+              onClick={() => {
+                setCollapsed(entry.path, false);
+                if (statusTarget) void selectSession(statusTarget.id);
+              }}
+            >
+              {status.needsAttention > 0 ? (
+                <span className="project-status-dot attention" aria-hidden />
+              ) : status.total > 0 ? (
+                <span className="project-status-dot" aria-hidden />
+              ) : null}
+              {status.total > 0 ? (
+                <span className="project-status-count">{status.total}</span>
+              ) : null}
+              {status.scheduledRunning > 0 ? (
+                <span className="project-status-scheduled">
+                  {t("nav.projectStatusScheduled", { count: status.scheduledRunning })}
+                </span>
+              ) : null}
+              {status.finished + status.failed > 0 ? (
+                <span className="project-status-results">
+                  {status.failed > 0 ? (
+                    <IconCircleAlert size={11} aria-hidden />
+                  ) : (
+                    <IconCheck size={11} aria-hidden />
+                  )}
+                  <span className="project-status-count">
+                    {status.finished + status.failed}
+                  </span>
+                </span>
+              ) : null}
+            </button>
+          ) : null}
           <div className="sidebar-menu-wrap">
             <TooltipButton
               type="button"
