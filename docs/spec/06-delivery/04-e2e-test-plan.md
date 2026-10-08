@@ -17022,19 +17022,19 @@ host-created files. The full app's file-preview viewer is covered separately.
   scheduled task, then collapse the project. 2) Hold one turn while the other
   finishes. 3) Let everything finish, then open one conversation and read its
   result. 4) Repeat with a session that stops on a permission prompt or an
-  Ask/Plan decision, and with a failed turn. 5) Click the project's status
-  control. 6) Reload the renderer while a run is still in flight.
-- **Expected**: The collapsed project's header reports the running
-  conversations with a warning dot and their count, and the scheduled run is
-  counted beside them under its own label; the second project's run never counts
-  here. A session that waits for the reader turns the dot purple and is ordered
-  first, while the count still reports the running conversations. When one turn
-  finishes while another still runs, the header keeps the running count and
-  adds the unread result; once nothing runs, the control turns to the success
-  tone with the number of unread results, and that number drops as each
-  conversation is opened, exactly like the row's own outcome badge. Clicking the
-  status reveals the group and opens the conversation that waits for the reader
-  first, otherwise the first running one. After a reload a run that started
+  Ask/Plan decision, and with a failed turn. 5) Read the row's hint by hovering the
+  project's title and again by focusing it from the keyboard. 6) Reload the
+  renderer while a run is still in flight.
+- **Expected**: The collapsed project's header shows one number: the work in
+  flight, with the scheduled run counted in it and split out by the sentence.
+  The second project's run never counts here. A session that waits for the
+  reader turns the number purple and the hint names it first. When one turn
+  finishes while another still runs, the number keeps reporting the work in
+  flight; once nothing runs, it takes the success tone and reports the unread
+  results, and that number drops as each conversation is opened, exactly like
+  the row's own outcome badge. The number adds no target of its own: the row
+  shows it, explains it on hover or keyboard focus, and clicking it behaves
+  like the rest of the header. After a reload a run that started
   before it is still reported.
 - **Specs linked**: `04-ux/08-component-spec.md` §3.4, §3.9a, §20A.4;
   E2E-SCHEDULED-desktop-automation-lifecycle.
@@ -17044,7 +17044,7 @@ host-created files. The full app's file-preview viewer is covered separately.
   covers the aggregate (separate conversation and scheduled counts, another
   project's run never counted, a run counted once when both the store and the
   broadcast report it, the waiting-for-the-reader precedence, settled versus
-  partially settled, and separator-insensitive project matching), and
+  running-with-results, and separator-insensitive project matching), and
   `sidebar-project-status-contract.test.mjs` pins the wiring across the sidebar,
   the store slice, the API bridge, the protocol event, and the main-process
   announcements while `scheduled-runner.test.mjs` covers a run's own admission

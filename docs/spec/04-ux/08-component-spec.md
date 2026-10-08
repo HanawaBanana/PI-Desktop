@@ -736,24 +736,23 @@ controls.
 ### 3.9a Project status contract (issue #1441)
 
 A project header reports what its own conversations and scheduled runs are doing
-even while the group is collapsed. The aggregate reads state the renderer
-already holds — the row's listed conversations, the unfiltered session list (an
-automation transcript stays in the store even though the sidebar drops it from
-the list), the running map, the unread outcome map, the pending
-permission/ask/plan sets, and the broadcast of scheduled runs — so a collapsed
-project needs no host read beyond the run broadcast.
+even while the group is collapsed, and it does so with one number rather than a
+row of labels. The aggregate reads state the renderer already holds — the row's
+listed conversations, the unfiltered session list (an automation transcript
+stays in the store even though the sidebar drops it from the list), the running
+map, the unread outcome map, the pending permission/ask/plan sets, and the
+broadcast of scheduled runs — so a collapsed project needs no host read beyond
+the run broadcast.
 
 | Element | Contract |
 |---|---|
-| Status control | One trailing button on the project header, present only while that project has something to report; expanding and collapsing by clicking the header keeps its own semantics and hit area |
-| Running | Warning dot beside the count of that project's running conversations; the accessible name states the whole summary, never a bare number |
-| Scheduled runs | Counted beside the conversations and labelled separately (`Scheduled 1`), because an automation transcript never returns to the conversation list (#1298) |
-| Waiting for the reader | The session row's own purple `permission` colour, taking precedence over the running dot; a pending permission, ask, or Plan all count |
-| Results | Success check or failure alert with the unread count, read through the session row's own not-looked-at-yet rule, so opening a conversation clears its share of the project count |
-| Settled | The whole control takes the success tone once nothing of that project runs and at least one result is unread |
-| Partially settled | A result and a running count coexist: the count keeps running and the summary states the finished count as well |
-| Activation | Reveals the group and opens the conversation that waits for the reader first, otherwise the first running conversation; a project with results only reveals the group |
-| Theme and motion | Semantic tokens only, state carried by a glyph and a number as well as colour, and no state adds motion |
+| The number | One trailing count on the project header, present only while that project has something to report: the work in flight (conversations plus scheduled runs) while any runs, otherwise the unread results. It is a label and not a control — nothing new to click, and the header keeps its own expand/collapse semantics and hit area |
+| Running | Warning tone while work is in flight |
+| Scheduled runs | Counted in the same number because an automation transcript never returns to the conversation list (#1298); the sentence is where the split is named |
+| Waiting for the reader | Purple, taking precedence over the running tone, with the session row's own bounded pulse so colour is not the only signal; a pending permission, ask, or Plan all count |
+| Results | Once nothing runs, the same number reports the unread results in the success tone, read through the session row's own not-looked-at-yet rule, so opening a conversation drops its share of the count; any failed result turns the number to the error tone |
+| The sentence | Hovering or keyboard-focusing the row appends the full sentence to the hint the row already shows (`/path — Running 2 · Scheduled 1`), and the header's accessible description carries the same sentence, so the number is explained without a pointer |
+| Theme and motion | Semantic tokens only; the waiting state animates at most twice and stops under `prefers-reduced-motion` |
 
 ### 3.10 Local profile footer contract
 
@@ -4246,8 +4245,9 @@ TASKS (2)                     │ Nightly dependency check   [Enabled] [Run now]
   the navigation history when this route is directly behind the conversation.
 - A run is announced to the renderer when the host admits it — manually or from
   the scheduler — and again when it settles or fails to dispatch, which is how
-  its project's header in the sidebar counts it and reports its result while the
-  automation transcript stays out of the conversation list. See §3.9a.
+  its project's header in the sidebar reports it while the automation transcript
+  stays out of the conversation list: the row's number covers the run and the
+  row's hint names it. See §3.9a.
 - Above 900px the task column sticks below the titlebar band; below it the
   column stacks above the page.
 - Motion: colour and chevron transitions only, disabled under
