@@ -200,7 +200,6 @@ export const en = {
     projectStatusFinished: "Finished {{count}}",
     projectStatusFailed: "Failed {{count}}",
     projectStatusSettled: "All settled — {{count}} to review",
-    projectStatusPartial: "{{finished}} finished, {{running}} still running",
     projectStatusLabel: "Project status: {{summary}}",
     openSessionPath: "Open session path",
     timeGroupYesterday: "Yesterday",

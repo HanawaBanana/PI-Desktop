@@ -1872,27 +1872,18 @@ export function Sidebar({
     if (status.settled) {
       statusParts.push(t("nav.projectStatusSettled", { count: status.finished + status.failed }));
     }
-    if (status.partiallySettled) {
-      statusParts.push(
-        t("nav.projectStatusPartial", {
-          finished: status.finished + status.failed,
-          running: status.total,
-        }),
-      );
-    }
+    // The row keeps one number (issue #1441): how much is going on, or what is
+    // waiting to be read once nothing runs. The sentence behind it is hover.
     const statusSummary = statusParts.join(" · ");
-    // Opening the status lands on the session that needs the reader first.
-    const statusTarget =
-      entry.sessions.find((session) => attentionSessionIds.has(session.id)) ??
-      entry.sessions.find((session) => runningSessions[session.id] === true);
+    const statusCount = status.total > 0 ? status.total : status.finished + status.failed;
     const statusTone =
-      status.failed > 0
-        ? "failed"
-        : status.needsAttention > 0
+      status.total > 0
+        ? status.needsAttention > 0
           ? "attention"
-          : status.settled
-            ? "settled"
-            : "running";
+          : "running"
+        : status.failed > 0
+          ? "failed"
+          : "settled";
     const projectId = projectDomId(entry.key);
     const isMenuOpen = projectMenu === entry.key;
 
@@ -1993,7 +1984,7 @@ export function Sidebar({
             type="button"
             id={projectId}
             className="sidebar-session-group-title project-toggle"
-            tooltip={entry.path}
+            tooltip={statusSummary ? `${entry.path} — ${statusSummary}` : entry.path}
             tooltipDelayMs={500}
             tooltipClassName="ui-tooltip-path"
             ariaLabel={entry.name}
@@ -2033,51 +2024,18 @@ export function Sidebar({
             )}
             <span>{entry.name}</span>
             {entry.active ? <span className="sidebar-project-active-dot" aria-label={t("project.active", { defaultValue: "Active" })} /> : null}
+            {statusCount > 0 ? (
+              <span className={`project-status ${statusTone}`} aria-hidden="true">
+                {statusCount}
+              </span>
+            ) : null}
           </TooltipButton>
           <span id={`${projectId}-path-description`} className="sr-only">
             {entry.path}
             {". "}
             {t("project.reorder", { name: entry.name, defaultValue: "Reorder {{name}}" })}
+            {statusSummary ? `. ${t("nav.projectStatusLabel", { summary: statusSummary })}` : ""}
           </span>
-          {statusSummary ? (
-            <button
-              type="button"
-              className={`project-status ${statusTone}`}
-              data-action="project-status"
-              aria-label={t("nav.projectStatusLabel", { summary: statusSummary })}
-              title={statusSummary}
-              onClick={() => {
-                setCollapsed(entry.path, false);
-                if (statusTarget) void selectSession(statusTarget.id);
-              }}
-            >
-              {status.needsAttention > 0 ? (
-                <span className="project-status-dot attention" aria-hidden />
-              ) : status.total > 0 ? (
-                <span className="project-status-dot" aria-hidden />
-              ) : null}
-              {status.total > 0 ? (
-                <span className="project-status-count">{status.total}</span>
-              ) : null}
-              {status.scheduledRunning > 0 ? (
-                <span className="project-status-scheduled">
-                  {t("nav.projectStatusScheduled", { count: status.scheduledRunning })}
-                </span>
-              ) : null}
-              {status.finished + status.failed > 0 ? (
-                <span className="project-status-results">
-                  {status.failed > 0 ? (
-                    <IconCircleAlert size={11} aria-hidden />
-                  ) : (
-                    <IconCheck size={11} aria-hidden />
-                  )}
-                  <span className="project-status-count">
-                    {status.finished + status.failed}
-                  </span>
-                </span>
-              ) : null}
-            </button>
-          ) : null}
           <div className="sidebar-menu-wrap">
             <TooltipButton
               type="button"

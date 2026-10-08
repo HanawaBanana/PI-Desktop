@@ -202,7 +202,6 @@ export const tr = {
     projectStatusFinished: "Tamamlandı {{count}}",
     projectStatusFailed: "Başarısız {{count}}",
     projectStatusSettled: "Hepsi tamam — {{count}} incelenecek",
-    projectStatusPartial: "{{finished}} tamamlandı, {{running}} hâlâ çalışıyor",
     projectStatusLabel: "Proje durumu: {{summary}}",
     openSessionPath: "Oturum yolunu aç",
     timeGroupYesterday: "Dün",

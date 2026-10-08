@@ -195,7 +195,6 @@ export const zhTW = {
     projectStatusFinished: "已完成 {{count}}",
     projectStatusFailed: "失敗 {{count}}",
     projectStatusSettled: "全部結束 — {{count}} 條待檢視",
-    projectStatusPartial: "{{finished}} 個已完成，{{running}} 個仍在執行",
     projectStatusLabel: "專案狀態：{{summary}}",
     openSessionPath: "開啟會話路徑",
     timeGroupYesterday: "昨天",

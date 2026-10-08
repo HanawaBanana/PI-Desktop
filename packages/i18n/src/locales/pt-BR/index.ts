@@ -192,7 +192,6 @@ export const ptBR = {
     projectStatusFinished: "Concluído {{count}}",
     projectStatusFailed: "Falhou {{count}}",
     projectStatusSettled: "Tudo resolvido — {{count}} para revisar",
-    projectStatusPartial: "{{finished}} concluídos, {{running}} ainda em execução",
     projectStatusLabel: "Status do projeto: {{summary}}",
     openSessionPath: "Abrir caminho da sessão",
     timeGroupYesterday: "Ontem",

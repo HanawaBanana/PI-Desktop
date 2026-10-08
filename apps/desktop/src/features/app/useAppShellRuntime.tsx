@@ -593,11 +593,13 @@ export function useAppShellRuntime() {
         ]);
         const byId = new Map(tasks.map((task) => [task.id, task]));
         for (const run of runs) {
-          if (run.status !== "running") continue;
+          // A run with no conversation of its own could never be attributed to
+          // a project row, so it is not seeded at all.
+          if (run.status !== "running" || !run.sessionId) continue;
           const task = byId.get(run.taskId);
           useAppStore.getState().applyScheduledRunChanged({
             runId: run.id,
-            sessionId: run.sessionId ?? "",
+            sessionId: run.sessionId,
             taskId: run.taskId,
             ...(task?.title ? { taskTitle: task.title } : {}),
             ...(task?.workspacePath ? { projectPath: task.workspacePath } : {}),

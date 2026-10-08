@@ -195,7 +195,6 @@ export const zhCN = {
     projectStatusFinished: "已完成 {{count}}",
     projectStatusFailed: "失败 {{count}}",
     projectStatusSettled: "全部结束 — {{count}} 条待查看",
-    projectStatusPartial: "{{finished}} 个已完成，{{running}} 个仍在运行",
     projectStatusLabel: "项目状态：{{summary}}",
     openSessionPath: "打开会话路径",
     timeGroupYesterday: "昨天",

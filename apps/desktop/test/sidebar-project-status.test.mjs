@@ -72,7 +72,6 @@ test("finished work settles only once nothing runs", () => {
   assert.equal(settled.finished, 1);
   assert.equal(settled.failed, 0);
   assert.equal(settled.settled, true);
-  assert.equal(settled.partiallySettled, false);
 
   const partial = statusFor({
     sessions: [{ id: "a" }, { id: "b" }],
@@ -82,7 +81,6 @@ test("finished work settles only once nothing runs", () => {
   });
   assert.equal(partial.failed, 1);
   assert.equal(partial.settled, false, "work is still running");
-  assert.equal(partial.partiallySettled, true);
 });
 
 test("results already read leave no project status behind", () => {
@@ -100,7 +98,6 @@ test("results already read leave no project status behind", () => {
     failed: 0,
     total: 0,
     settled: false,
-    partiallySettled: false,
   });
 });
 

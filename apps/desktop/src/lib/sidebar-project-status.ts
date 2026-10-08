@@ -31,8 +31,6 @@ export type SidebarProjectStatus = {
   total: number;
   /** Nothing of this project runs any more, and at least one result is unread. */
   settled: boolean;
-  /** Some work finished while the rest still runs. */
-  partiallySettled: boolean;
 };
 
 export function projectRunningStatus(input: {
@@ -110,6 +108,5 @@ export function projectRunningStatus(input: {
     failed,
     total,
     settled: total === 0 && results > 0,
-    partiallySettled: total > 0 && results > 0,
   };
 }

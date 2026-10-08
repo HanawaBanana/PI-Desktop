@@ -363,60 +363,30 @@
 }
 
 
-/* Project rows mirror the session-row running language (issue #1441): a warning
-   dot plus a count while work is in flight, the same purple for a session that
-   waits for the reader, and the outcome colours once results arrive. The count
-   keeps a collapsed project readable without relying on colour alone. */
+/* A project row keeps one number while its conversations are folded away (issue
+   #1441): how much of that project is going on, or what is waiting to be read
+   once nothing runs. The sentence behind it is the row's own hover hint, and
+   the tone is the session row's running language — the waiting state keeps its
+   bounded pulse so colour is never the only signal. */
 .project-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+  flex: 0 0 auto;
   margin-left: auto;
-  min-width: 0;
-  border: 0;
-  padding: 0 2px;
-  background: transparent;
-  color: var(--ds-text-secondary);
+  padding-left: 6px;
+  color: var(--ds-warning);
   font-size: var(--text-2xs);
   font-variant-numeric: tabular-nums;
-  cursor: pointer;
 }
 
-.project-status:hover,
-.project-status:focus-visible {
-  color: var(--ds-text-primary);
+.project-status.attention {
+  color: var(--ds-purple);
+  animation: sidebar-status-pulse-purple 1.2s ease-in-out 2;
 }
 
-.project-status-dot {
-  width: 7px;
-  height: 7px;
-  flex: 0 0 auto;
-  border-radius: var(--radius-full);
-  background: var(--ds-warning);
-}
-
-.project-status-dot.attention,
-.project-status.attention .project-status-dot {
-  background: var(--ds-purple);
-}
-
-.project-status-scheduled {
-  color: var(--ds-text-muted);
-}
-
-.project-status-results {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.project-status.settled,
-.project-status.settled .project-status-results {
+.project-status.settled {
   color: var(--ds-success);
 }
 
-.project-status.failed,
-.project-status.failed .project-status-results {
+.project-status.failed {
   color: var(--ds-error);
 }
 @keyframes sidebar-status-breathe {
@@ -448,6 +418,9 @@
     animation: none;
   }
   .thread-item-status.permission::before {
+    animation: none;
+  }
+  .project-status.attention {
     animation: none;
   }
 }

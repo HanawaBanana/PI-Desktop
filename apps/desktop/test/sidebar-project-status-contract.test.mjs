@@ -39,28 +39,43 @@ test("a project row derives its status from state the renderer already holds", (
   assert.doesNotMatch(attentionBlock, /pendingApproval\w*\.length > 0 \? 1 : 0/);
 });
 
-test("the project status control is one labelled button that never hides behind a collapse", () => {
-  const control = sidebarSource.match(
-    /<button[\s\S]*?data-action="project-status"[\s\S]*?<\/button>/,
-  )?.[0] ?? "";
-  assert.match(control, /aria-label=\{t\("nav\.projectStatusLabel"/);
-  assert.match(control, /title=\{statusSummary\}/);
-  assert.match(control, /onClick=\{\(\) => \{\n\s+setCollapsed\(entry\.path, false\);/);
-  assert.match(control, /statusTarget/);
-  assert.match(
-    sidebarSource,
-    /const statusSummary = statusParts\.join/,
-    "the summary is built from the same parts the control renders",
-  );
-  // The control is rendered for the row, not inside the collapsed-only branch.
+test("a project row keeps one number and no status control of its own", () => {
   const renderBlock = sidebarSource.match(/const renderProjectGroup =[\s\S]*?\n {2}\};/)?.[0] ?? "";
   assert.match(renderBlock, /const collapsedProject = entry\.meta\.collapsed/);
-  // The control belongs to the header, so the collapsible conversation body (#1298
-  // keeps it the only place a run's transcript could appear) never owns it.
+  // The row reports; it does not add a target of its own (no button, no
+  // data-action, nothing new for the header's click to yield to).
+  assert.doesNotMatch(renderBlock, /data-action="project-status"/);
+  assert.doesNotMatch(renderBlock, /statusTarget/);
+  const number = renderBlock.match(
+    /<span className=\{`project-status \$\{statusTone\}`\} aria-hidden="true">\s*\{statusCount\}\s*<\/span>/,
+  )?.[0] ?? "";
+  assert.ok(number, "the row's own number is what stays visible");
+  assert.doesNotMatch(number, /onClick/);
+  assert.match(
+    renderBlock,
+    /const statusCount = status\.total > 0 \? status\.total : status\.finished \+ status\.failed;/,
+    "one number: what is going on, or what is waiting to be read",
+  );
+  assert.match(
+    renderBlock,
+    /const statusTone =\n\s+status\.total > 0\n\s+\? status\.needsAttention > 0\n\s+\? "attention"\n\s+: "running"\n\s+: status\.failed > 0\n\s+\? "failed"\n\s+: "settled";/,
+    "the tone describes that number's own state",
+  );
+  // The number is a child of the header's own title button, so the row's
+  // existing hover hint is what explains it — one surface, not a second one.
   assert.ok(
-    renderBlock.indexOf("data-action=\"project-status\"") <
-      renderBlock.indexOf("sidebar-session-group-body project"),
-    "the status control is rendered by the header, not inside the collapsed body",
+    renderBlock.indexOf("project-status ${statusTone}") <
+      renderBlock.indexOf("</TooltipButton>"),
+    "the number is hovered through the row's own hint",
+  );
+  assert.match(
+    renderBlock,
+    /tooltip=\{statusSummary \? `\$\{entry\.path\} — \$\{statusSummary\}` : entry\.path\}/,
+  );
+  assert.match(
+    renderBlock,
+    /\{statusSummary \? `\. \$\{t\("nav\.projectStatusLabel", \{ summary: statusSummary \}\)\}` : ""\}/,
+    "assistive tech reads the same sentence without hovering",
   );
 });
 
@@ -96,7 +111,12 @@ test("a reload seeds the runs that started before it from the task list", () => 
   )?.[0] ?? "";
   assert.match(seedBlock, /api\.listScheduled\(\)/);
   assert.match(seedBlock, /api\.listScheduledRuns\(\{ latestPerTask: true \}\)/);
-  assert.match(seedBlock, /if \(run\.status !== "running"\) continue;/);
+  assert.match(
+    seedBlock,
+    /if \(run\.status !== "running" \|\| !run\.sessionId\) continue;/,
+    "only a live run that owns a conversation can be attributed to a project",
+  );
+  assert.match(seedBlock, /sessionId: run\.sessionId,/);
   assert.match(seedBlock, /applyScheduledRunChanged\(\{/);
 });
 

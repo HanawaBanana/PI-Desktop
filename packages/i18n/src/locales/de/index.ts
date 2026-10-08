@@ -193,7 +193,6 @@ export const de = {
     "projectStatusFinished": "Fertig {{count}}",
     "projectStatusFailed": "Fehlgeschlagen {{count}}",
     "projectStatusSettled": "Alles erledigt — {{count}} zu prüfen",
-    "projectStatusPartial": "{{finished}} fertig, {{running}} laufen noch",
     "projectStatusLabel": "Projektstatus: {{summary}}",
     "openSessionPath": "Sitzungspfad öffnen",
     "timeGroupYesterday": "Gestern",

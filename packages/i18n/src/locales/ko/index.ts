@@ -202,7 +202,6 @@ export const ko = {
     projectStatusFinished: "완료됨 {{count}}",
     projectStatusFailed: "실패 {{count}}",
     projectStatusSettled: "모두 종료 — 확인할 {{count}}개",
-    projectStatusPartial: "{{finished}}개 완료, {{running}}개 실행 중",
     projectStatusLabel: "프로젝트 상태: {{summary}}",
     openSessionPath: "세션 경로 열기",
     timeGroupYesterday: "어제",
