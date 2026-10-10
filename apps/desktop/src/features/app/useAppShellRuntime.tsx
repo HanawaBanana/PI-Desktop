@@ -27,7 +27,7 @@ import {
   MAIN_PANE_MIN_WIDTH,
   workPanelWidthForSidebarReopen,
 } from "../../lib/work-panel-resize";
-import { browserPluginTab } from "../../lib/work-panel-tabs";
+import { browserPluginTab, browserPluginTabForReveal } from "../../lib/work-panel-tabs";
 import { useAppStore } from "../../stores/app-store";
 import { useSidebarTransition } from "./useSidebarTransition";
 import { useStartupWatchdog } from "./useStartupWatchdog";
@@ -608,11 +608,20 @@ export function useAppShellRuntime() {
     // opens a workspace file in the embedded browser (BrowserPreview tool).
     const offBrowserState = api.onBrowserState((event) => useAppStore.getState().updateBrowserWorkPanelTab(event));
     const offBrowserPreview = api.onBrowserPreview((event) => {
-      useAppStore
-        .getState()
-        .openWorkPanelTabForSession(event.sessionId, {
-          ...browserPluginTab(event.path ?? event.url),
-        });
+      const state = useAppStore.getState();
+      if (event.revealOnly) {
+        const context = state.activeSessionId === event.sessionId
+          ? { tabs: state.workPanelTabs, activeTabId: state.activeWorkPanelTabId }
+          : state.workPanelContexts[event.sessionId];
+        state.openWorkPanelTabForSession(
+          event.sessionId,
+          browserPluginTabForReveal(context?.tabs ?? [], context?.activeTabId ?? null, event.tabId),
+        );
+        return;
+      }
+      state.openWorkPanelTabForSession(event.sessionId, {
+        ...browserPluginTab(event.path ?? event.url),
+      });
     });
     const offHostStatus = api.onHostStatus((status) => {
       if (status.archMismatch) setArchMismatch(status.archMismatch);
