@@ -9,6 +9,7 @@ export const esEntries: ChangelogEntry[] = [
       "Añade desde Añadir servicio proveedores de plugins con clave API, descripciones localizadas y detección de modelos tras configurarlos.",
       "Las acciones autorizadas de plugins pueden transformar el borrador del Composer y deshacer el cambio; la mejora de prompts ahora es un plugin opcional.",
       "Los detalles de las herramientas permanecen contraídos hasta que los abras, para mantener visible la respuesta completa.",
+      "Consulta preguntas y respuestas anteriores de AskTool en una tarjeta clara de preguntas y respuestas.",
       "Genera títulos de sesión con un plugin opcional; el primer mensaje sigue como alternativa y los cambios manuales tienen prioridad.",
       "Abre enlaces locales a archivos Markdown desde el chat en el Administrador de archivos integrado, incluidos enlaces relativos y referencias a líneas.",
       "La lista de modelos del Composer ahora muestra los límites de contexto configurados.",

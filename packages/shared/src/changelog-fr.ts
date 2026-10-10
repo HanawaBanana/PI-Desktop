@@ -9,6 +9,7 @@ export const frEntries: ChangelogEntry[] = [
       "Ajoutez depuis Ajouter un service des fournisseurs de plugins avec clé API, descriptions localisées et découverte des modèles après configuration.",
       "Les actions de plugins autorisées peuvent transformer le brouillon du Composer avec une annulation ; l'amélioration des prompts est désormais un plugin facultatif.",
       "Les détails des outils restent réduits jusqu'à leur ouverture, afin de garder la réponse terminée visible.",
+      "Retrouvez les anciennes questions et réponses d’AskTool dans une carte Q&R claire.",
       "Générez les titres de session avec un plugin facultatif ; le premier message reste une solution de repli et les renommages manuels sont prioritaires.",
       "Ouvrez depuis le chat les liens locaux vers des fichiers Markdown dans le gestionnaire intégré, y compris les liens relatifs et les références de ligne.",
       "La liste des modèles du Composer affiche maintenant les limites de contexte configurées.",

@@ -9,6 +9,7 @@ export const trEntries: ChangelogEntry[] = [
       "Yerelleştirilmiş açıklamalar ve anahtar kurulumundan sonra model keşfiyle eklenti kaynaklı API anahtarlı hizmetleri ekleyin.",
       "İzin verilen eklenti işlemleri Composer taslağını dönüştürebilir ve geri alınabilir; istem iyileştirme artık isteğe bağlı bir eklentide sunulur.",
       "Yanıt görünür kalsın diye araç ayrıntıları siz açana kadar kapalı kalır.",
+      "Geçmiş AskTool soru ve yanıtlarını düzenli bir Soru-Cevap kartında inceleyin.",
       "İsteğe bağlı bir eklentiyle oturum başlığı oluşturun; ilk istem yedek başlık olarak kalır ve elle yeniden adlandırmalar önceliklidir.",
       "Göreli bağlantılar ve satır başvuruları dahil yerel Markdown dosya bağlantılarını sohbetten yerleşik Dosya Yöneticisi'nde açın.",
       "Composer'ın model listesi artık yapılandırılmış bağlam penceresi sınırlarını gösterir.",

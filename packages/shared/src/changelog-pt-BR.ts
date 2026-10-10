@@ -9,6 +9,7 @@ export const ptBREntries: ChangelogEntry[] = [
       "Adicione em Adicionar serviço provedores de plugins com chave de API, descrições localizadas e descoberta de modelos após a configuração.",
       "Ações autorizadas de plugins podem transformar o rascunho do Composer com opção de desfazer; o aprimoramento de prompts agora é um plugin opcional.",
       "Os detalhes das ferramentas ficam recolhidos até serem abertos, mantendo a resposta concluída visível.",
+      "Consulte perguntas e respostas anteriores do AskTool em um cartão Q&A organizado.",
       "Gere títulos de sessão com um plugin opcional; a primeira mensagem continua como alternativa e renomeações manuais têm prioridade.",
       "Abra links locais para arquivos Markdown pelo chat no Gerenciador de arquivos integrado, incluindo links relativos e referências a linhas.",
       "A lista de modelos do Composer agora mostra os limites de contexto configurados.",
