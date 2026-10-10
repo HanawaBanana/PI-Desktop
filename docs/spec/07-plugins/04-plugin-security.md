@@ -119,7 +119,12 @@ before it is ever sent to the UI:
   the selected one; leaving the theme restores the host background, because the
   appearance is derived from the live catalog rather than remembered. macOS
   keeps `vibrancy` and its native corner behavior; Linux retains native corner
-  behavior; Windows defaults to 4 DIP
+  behavior. Windows defaults to a 12 DIP corner request. On Windows 11 (build
+  22000+), radius 0 requests square corners and positive values use the same
+  system-rounded preference, while the OS chooses the actual radius; alpha
+  backgrounds are composited over the resolved built-in theme color to keep the
+  top-level window opaque. Earlier Windows builds retain the requested DIP
+  radius
 - The CSS is read from disk at load time and delivered whole over IPC; the
   renderer injects it into a single dedicated `<style>` element appended after
   the app's own stylesheets, so it can override tokens but never inject markup.
@@ -192,6 +197,16 @@ and can use raw Node APIs, so a plugin with this grant must be code the user
 trusts. The callback receives an abort signal when login is cancelled, the
 plugin unloads, or the host call times out. Sign out clears the credential and
 leaves the manifest-owned provider row in place.
+
+The Add Service provider catalog is also Host-rendered. It reads only the
+manifest metadata of loaded plugins with `provider.register`, includes only
+unconfigured API-key providers with an endpoint, and renders the category and
+provider name as text. An optional description is plain tooltip text on hover
+or keyboard focus. The chooser does not execute plugin code or return
+credentials. Saving a key stores it through the Host's existing provider
+secret path; the Host discovers endpoint models after that explicit save, and
+the provider service receives the key when the user sends a request through
+the provider.
 
 ## 6. Path safety
 
@@ -334,9 +349,11 @@ outbound path the host owns answers to it.
   `window.open`, which would otherwise mint a window outside the filtered session
 - **`pi.net.fetch`.** Checks the allowlist and follows redirects by hand, because
   an allowed host that 30x-es to an undeclared one would carry the request out.
-  The runtime's hop loop is the only fetch path: Electron main supplies no
-  alternative `fetch` service, so nothing can follow a redirect without the
-  per-hop re-check
+  The host's shared hop loop owns both default and injected single-hop
+  transports. `redirect: "error"` rejects 3xx without visiting the target;
+  `manual` returns the original response. The default remains `follow`, with
+  the per-hop re-check. See the [API contract](03-plugin-api.md#net) for
+  capability detection and error codes.
 - **Remote MCP endpoints.** Answer to the same list, not to their permission alone.
   HTTP endpoints may be on a trusted LAN, but plain HTTP is unencrypted and is
   called out during configuration or plugin permission review. The MCP client

@@ -528,6 +528,25 @@ host never retries a request your plugin makes, so backoff after a rate limit is
 your own policy rather than a hidden host behaviour. A call that comes back
 `>= 400` is still audited, as `ok: false` with the delay the response advertised.
 
+### Fetch redirect policy (unreleased)
+
+Check host support before relying on a policy; old hosts can ignore unknown
+request fields. Never fall back to a raw network request.
+
+```js
+if (typeof pi.net.getCapabilities !== "function") throw new Error("Upgrade PI-Desktop");
+const capabilities = await pi.net.getCapabilities();
+if (!capabilities.fetchRedirectModes.includes("error")) throw new Error("Unsupported host");
+const response = await pi.net.fetch({ url: endpoint, redirect: "error" });
+```
+
+`error` rejects every 3xx with `REDIRECT_DISALLOWED` before accessing Location.
+`manual` returns the original status, headers and body. Omitted/`follow` retains
+the existing bounded, per-hop egress-checked behavior. Invalid modes are rejected
+before I/O. No mode expands network permissions. See the
+[complete contract](spec/07-plugins/03-plugin-api.md#net) and the
+local-only test plugin at `examples/plugins/fetch-redirect/README.md` in the repository.
+
 ### 6.7 Theme
 
 Declare a CSS file and `ui.theme`:
@@ -681,8 +700,9 @@ remote server requires `mcp.server.remote`:
 A stdio command must be a bare command found on `PATH` or a plugin-relative
 executable; absolute paths are rejected. `npx` and `uvx` are resolved to the
 real Node.js / uv binaries (PATH, official Node, fnm, nvm, Volta, default uv
-install). Remote URLs may use HTTP or HTTPS, and the host must be listed in
-`net.domains`; non-loopback HTTP is unencrypted, so use it only on a trusted
+install). On Windows, `python3` and `python` skip the Microsoft Store alias for
+a real interpreter on `PATH`, falling back to `py -3`. Remote URLs may use
+HTTP or HTTPS, and the host must be listed in `net.domains`; non-loopback HTTP is unencrypted, so use it only on a trusted
 network. Setting references read only this plugin's settings—the host
 environment and provider secrets are never forwarded. MCP tools follow the
 same Agent-only policy and namespacing as hand-written plugin tools.

@@ -12,6 +12,7 @@ import type { Stats } from "node:fs";
 import { open as openFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { pluginNetFetch, parseFetchRedirect, type PluginFetchTransport } from "./plugin-net-fetch";
 import type { LoadedSkillDocument } from "./skill-document";
 import { getModuleDirectory } from "./module-path";
 import {
@@ -67,6 +68,7 @@ import {
   type PluginProviderContrib,
   type PluginServiceContrib,
   type PluginSettingContrib,
+  type PluginComposerTransformInput,
   type PluginSkillContrib,
   type PluginThemeVariableContrib,
 } from "@pi-desktop/plugin-sdk";
@@ -77,6 +79,7 @@ import {
   type PluginRendererDescriptor,
   type PluginServiceStatus,
   type PluginSettingDefinition,
+  type PluginComposerTransformMeta,
   type PluginWorkspaceInfo,
   BUILTIN_SPEECH_PROTOCOL_IDS,
 } from "@pi-desktop/shared";
@@ -117,6 +120,11 @@ import {
   type PluginShortcutRegistry,
 } from "./plugin-shortcut-registry";
 import { repairImportedExtensionWrapper } from "./imported-plugin-wrapper";
+import {
+  migrateLegacyPromptEnhancementSettings,
+  PROMPT_ENHANCEMENT_PLUGIN_ID,
+  type LegacyPromptEnhancementSettings,
+} from "./plugin-prompt-enhancement-migration";
 
 export type RegisteredCommand = {
   id: string;
@@ -308,6 +316,12 @@ export type PluginHostServices = {
   agentExtensionsChanged?: () => void;
   getLocale?: () => string;
   getAppVersion?: () => string;
+  /** Legacy host-owned prompt enhancement settings, used only for one-time migration. */
+  getLegacyPromptEnhancementSettings?: () =>
+    | LegacyPromptEnhancementSettings
+    | null
+    | undefined
+    | Promise<LegacyPromptEnhancementSettings | null | undefined>;
   /**
    * The appearance the host is currently showing (palette, language, active
    * plugin theme). Panels and plugin processes read it through `app.getAppearance`;
@@ -355,13 +369,8 @@ export type PluginHostServices = {
   readClipboardHistory: () => Promise<ClipboardHistoryEntry[]>;
   openPanel: (request: PluginPanelRequest) => Promise<void>;
   closePanel: (pluginId: string) => Promise<void>;
-  fetch?: (input: {
-    url: string;
-    method?: string;
-    headers?: Record<string, string>;
-    body?: string;
-    timeoutMs?: number;
-  }) => Promise<{ status: number; headers: Record<string, string>; bodyText: string }>;
+  /** Single-hop transport; the runtime owns redirect and timeout policy. */
+  fetch?: PluginFetchTransport;
   /** The reviewed desktop operation controller shared with MCP. */
   desktopControl?: McpControlController;
   /**
@@ -439,6 +448,7 @@ export type PluginHostServices = {
   }) => Promise<void> | void;
   /** Work-panel guest + CDP, gated by `browser.cdp` in the runtime. */
   browser?: {
+    reveal: (sessionId?: string) => Promise<void>;
     navigate: (
       input: { url?: string; path?: string },
       sessionId?: string,
@@ -472,6 +482,8 @@ export type PluginHostServices = {
     list: (pluginId: string, input: Record<string, unknown>) => Promise<unknown>;
     get: (pluginId: string, input: Record<string, unknown>) => Promise<unknown>;
     listMessages: (pluginId: string, input: Record<string, unknown>) => Promise<unknown>;
+    getAutoTitleContext: (pluginId: string, input: Record<string, unknown>) => Promise<unknown>;
+    setAutoTitle: (pluginId: string, input: Record<string, unknown>) => Promise<unknown>;
     import: (pluginId: string, input: Record<string, unknown>) => Promise<unknown>;
     importBatch: (pluginId: string, input: Record<string, unknown>) => Promise<unknown>;
     rename: (pluginId: string, input: Record<string, unknown>) => Promise<unknown>;
@@ -535,9 +547,11 @@ const HOST_API_ALLOWLIST = new Set([
   "clipboard.getHistory",
   "shell.openExternal",
   "net.fetch",
+  "net.getCapabilities",
   "bus.publish",
   "bus.subscribe",
   "bus.unsubscribe",
+  "browser.reveal",
   "browser.navigate",
   "browser.action",
   "browser.setBounds",
@@ -566,6 +580,8 @@ const HOST_API_ALLOWLIST = new Set([
   "browser.cdp",
   "models.list",
   "session.getLlmContext",
+  "session.getAutoTitleContext",
+  "session.setAutoTitle",
   "session.list",
   "session.get",
   "session.listMessages",
@@ -598,6 +614,9 @@ const PLUGIN_DISPOSE_ALL_TIMEOUT_MS = 3_000;
 const PLUGIN_COMMAND_TIMEOUT_MS = 30_000;
 /** Kept under host-core's 120s tool budget so the plugin-side error wins. */
 const PLUGIN_TOOL_TIMEOUT_MS = 110_000;
+/** User-invoked Composer transforms share the bounded plugin tool budget. */
+const PLUGIN_COMPOSER_TRANSFORM_TIMEOUT_MS = PLUGIN_TOOL_TIMEOUT_MS;
+const MAX_COMPOSER_TRANSFORM_TEXT_LENGTH = 100_000;
 /** Side completions sit under the plugin tool budget (ADR 0174). */
 export const PLUGIN_COMPLETE_TIMEOUT_MS = 90_000;
 /** Fixed panel operations are user-facing and must not hang the renderer. */
@@ -614,8 +633,6 @@ const PANEL_SKILL_CHANNELS = new Set([
 ]);
 /** A plugin may teach at most this many skills; the rest are ignored. */
 const MAX_SKILLS_PER_PLUGIN = 32;
-/** Redirect hops `pi.net.fetch` follows; each one is re-checked against egress. */
-const NET_FETCH_MAX_REDIRECTS = 5;
 
 /**
  * The delay a response advertises, verbatim — the value a plugin has to parse
@@ -1619,6 +1636,102 @@ export class PluginRuntime {
     );
   }
 
+  /** User-facing transform actions from loaded plugins with explicit consent. */
+  getComposerTransforms(pluginId?: string): PluginComposerTransformMeta[] {
+    const locale = this.services.getLocale?.();
+    const result: PluginComposerTransformMeta[] = [];
+    const candidates = pluginId
+      ? [this.loaded.get(pluginId)].filter((plugin): plugin is LoadedPlugin => Boolean(plugin))
+      : [...this.loaded.values()];
+    for (const loaded of candidates) {
+      if (loaded.disposing || !loaded.permissions.has("composer.transform")) continue;
+      const transforms = loaded.manifest.contributes?.composerTransforms ?? [];
+      for (const transform of transforms) {
+        result.push({
+          pluginId: loaded.manifest.id,
+          pluginName: loaded.manifest.name,
+          id: transform.id,
+          title: resolvePluginLocalizedString(transform.title, locale, transform.id),
+          undoTitle: resolvePluginLocalizedString(
+            transform.undoTitle,
+            locale,
+            `Undo ${resolvePluginLocalizedString(transform.title, locale, transform.id)}`,
+          ),
+        });
+      }
+    }
+    return result;
+  }
+
+  /** Invoke only a declared action; the plugin receives the draft text alone. */
+  async runComposerTransform(
+    input: PluginComposerTransformInput & { pluginId: string },
+  ): Promise<string> {
+    const pluginId = typeof input?.pluginId === "string" ? input.pluginId.trim() : "";
+    const transformId = typeof input?.id === "string" ? input.id.trim() : "";
+    const text = typeof input?.text === "string" ? input.text : "";
+    const modelKey = typeof input?.modelKey === "string" ? input.modelKey.trim() : undefined;
+    if (
+      !pluginId ||
+      !transformId ||
+      !text.trim() ||
+      text.length > MAX_COMPOSER_TRANSFORM_TEXT_LENGTH
+    ) {
+      throw apiError("INVALID_ARGUMENT", "composer transform input is invalid");
+    }
+    if (modelKey && modelKey.length > 512) {
+      throw apiError("INVALID_ARGUMENT", "composer transform modelKey is invalid");
+    }
+    const loaded = this.loaded.get(pluginId);
+    if (!loaded || loaded.disposing || !loaded.child) {
+      throw apiError("NOT_FOUND", "composer transform plugin is not loaded");
+    }
+    this.assertPermission(loaded, "composer.transform");
+    const transform = (loaded.manifest.contributes?.composerTransforms ?? []).find(
+      (entry) => entry.id === transformId,
+    );
+    if (!transform) throw apiError("NOT_FOUND", "composer transform is not declared");
+
+    const startedAt = Date.now();
+    try {
+      const result = await this.sendToChild(
+        loaded,
+        {
+          t: "call",
+          method: "composer.transform",
+          payload: { id: transformId, text, ...(modelKey ? { modelKey } : {}) },
+        },
+        PLUGIN_COMPOSER_TRANSFORM_TIMEOUT_MS,
+      );
+      if (this.loaded.get(pluginId) !== loaded || loaded.disposing) {
+        throw apiError("PLUGIN_UNLOADED", "composer transform plugin was unloaded");
+      }
+      if (typeof result !== "string" || result.length > MAX_COMPOSER_TRANSFORM_TEXT_LENGTH) {
+        throw apiError("PLUGIN_INVALID_RESULT", "composer transform must return a text string");
+      }
+      this.services.audit?.({
+        pluginId,
+        api: "composer.transform",
+        ok: true,
+        transformId,
+        durationMs: Date.now() - startedAt,
+        ts: Date.now(),
+      });
+      return result;
+    } catch (error) {
+      this.services.audit?.({
+        pluginId,
+        api: "composer.transform",
+        ok: false,
+        transformId,
+        errorCode: (error as PluginApiError)?.code ?? "PLUGIN_TRANSFORM_FAILED",
+        durationMs: Date.now() - startedAt,
+        ts: Date.now(),
+      });
+      throw error;
+    }
+  }
+
   getLoaded(pluginId: string): LoadedPlugin | undefined {
     return this.loaded.get(pluginId);
   }
@@ -1912,6 +2025,38 @@ export class PluginRuntime {
               (perm) => declared.has(perm),
             ),
           );
+
+    if (
+      manifest.id === PROMPT_ENHANCEMENT_PLUGIN_ID &&
+      granted.has("composer.transform") &&
+      (manifest.contributes?.composerTransforms?.length ?? 0) > 0 &&
+      this.services.getLegacyPromptEnhancementSettings
+    ) {
+      try {
+        const legacy = await this.services.getLegacyPromptEnhancementSettings();
+        const migration = migrateLegacyPromptEnhancementSettings(
+          this.pluginDataDir(manifest.id),
+          legacy,
+        );
+        if (migration.migrated.length > 0) {
+          this.services.audit?.({
+            pluginId: manifest.id,
+            api: "plugin.settings.migrate",
+            ok: true,
+            keys: migration.migrated,
+            ts: Date.now(),
+          });
+        }
+      } catch (error) {
+        this.services.audit?.({
+          pluginId: manifest.id,
+          api: "plugin.settings.migrate",
+          ok: false,
+          errorCode: (error as PluginApiError)?.code ?? "MIGRATION_FAILED",
+          ts: Date.now(),
+        });
+      }
+    }
 
     const entry =
       this.services.hostEntry ??
@@ -2291,6 +2436,8 @@ export class PluginRuntime {
       case "shell.openExternal":
         await api.shell.openExternal(String(payload?.url ?? ""));
         return { ok: true };
+      case "net.getCapabilities":
+        return api.net.getCapabilities();
       case "net.fetch":
         return api.net.fetch({
           url: String(payload?.url ?? ""),
@@ -2298,6 +2445,7 @@ export class PluginRuntime {
           headers: (payload?.headers as Record<string, string> | undefined) ?? undefined,
           body: payload?.body ? String(payload.body) : undefined,
           timeoutMs: typeof payload?.timeoutMs === "number" ? payload.timeoutMs : undefined,
+          redirect: payload?.redirect,
         });
       case "plugin.getSettings":
         return api.plugin.getSettings();
@@ -2830,6 +2978,59 @@ export class PluginRuntime {
       }
       case "session.getLlmContext": {
         return this.readSessionContext(loaded);
+      }
+      case "session.getAutoTitleContext": {
+        this.assertPermission(loaded, "session.autoTitle");
+        const input = normalizePluginSessionInput(args[0] ?? {}, "other");
+        const sessionId = typeof input.sessionId === "string" ? input.sessionId.trim() : "";
+        if (!sessionId || sessionId.length > 128) {
+          throw apiError("INVALID_PARAMS", "sessionId must be a non-empty string");
+        }
+        if (!this.services.session?.getAutoTitleContext) {
+          throw apiError("UNSUPPORTED", "host api not available: session.getAutoTitleContext");
+        }
+        const context = await this.services.session.getAutoTitleContext(
+          loaded.manifest.id,
+          { sessionId },
+        );
+        this.services.audit?.({
+          pluginId,
+          api,
+          ok: true,
+          sessionId,
+          ts: Date.now(),
+        });
+        return context;
+      }
+      case "session.setAutoTitle": {
+        this.assertPermission(loaded, "session.autoTitle");
+        const input = normalizePluginSessionInput(args[0] ?? {}, "other");
+        const sessionId = typeof input.sessionId === "string" ? input.sessionId.trim() : "";
+        const expectedTitle = typeof input.expectedTitle === "string" ? input.expectedTitle : "";
+        const title = typeof input.title === "string" ? input.title : "";
+        if (!sessionId || sessionId.length > 128 || !expectedTitle || !title) {
+          throw apiError("INVALID_PARAMS", "sessionId, expectedTitle and title are required");
+        }
+        if ([...expectedTitle].length > 80 || [...title].length > 80) {
+          throw apiError("LIMIT_EXCEEDED", "session title exceeds 80 characters");
+        }
+        if (!this.services.session?.setAutoTitle) {
+          throw apiError("UNSUPPORTED", "host api not available: session.setAutoTitle");
+        }
+        const result = await this.services.session.setAutoTitle(loaded.manifest.id, {
+          sessionId,
+          expectedTitle,
+          title,
+        }) as { updated?: unknown };
+        this.services.audit?.({
+          pluginId,
+          api,
+          ok: true,
+          sessionId,
+          updated: result?.updated === true,
+          ts: Date.now(),
+        });
+        return result;
       }
       case "session.import": {
         this.assertPermission(loaded, "session.import");
@@ -5744,58 +5945,31 @@ export class PluginRuntime {
         closeOutput: async () => this.refuseAudio(loaded, "audio.closeOutput"),
       },
       net: {
+        getCapabilities: async () => ({ fetchRedirectModes: ["follow", "error", "manual"] }),
         fetch: async (input: {
           url: string;
           method?: string;
           headers?: Record<string, string>;
           body?: string;
           timeoutMs?: number;
+          redirect?: unknown;
         }) => {
           this.assertPermission(loaded, "net.fetch");
-          if (!/^https?:\/\//i.test(input.url)) {
-            throw apiError("INVALID_ARGUMENT", "only http(s) URLs allowed");
-          }
-          this.assertEgress(loaded, input.url, "net.fetch");
-          if (this.services.fetch) {
-            const result = await this.services.fetch(input);
-            this.services.audit?.(
-              netFetchAuditEntry(pluginId, input.url, result.status, result.headers),
-            );
-            return result;
-          }
-          const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), input.timeoutMs ?? 15000);
+          const redirect = parseFetchRedirect(input.redirect);
           try {
-            // Follow redirects by hand: an allowlisted host that 30x-es to an
-            // undeclared one would otherwise carry the request straight out.
-            let url = input.url;
-            let res: Response;
-            for (let hop = 0; ; hop += 1) {
-              res = await fetch(url, {
-                method: input.method ?? "GET",
-                headers: input.headers,
-                body: input.body,
-                redirect: "manual",
-                signal: controller.signal,
-              });
-              if (res.status < 300 || res.status > 399) break;
-              const location = res.headers.get("location");
-              if (!location) break;
-              if (hop >= NET_FETCH_MAX_REDIRECTS) {
-                throw apiError("UNAVAILABLE", `too many redirects: ${input.url}`);
-              }
-              url = new URL(location, url).toString();
-              this.assertEgress(loaded, url, "net.fetch");
+            const { url, result } = await pluginNetFetch(
+              { ...input, redirect },
+              (url) => this.assertEgress(loaded, url, "net.fetch"),
+              this.services.fetch,
+            );
+            this.services.audit?.(netFetchAuditEntry(pluginId, url, result.status, result.headers));
+            return result;
+          } catch (error) {
+            if (error instanceof Error && "code" in error && error.code === "REDIRECT_DISALLOWED") {
+              this.services.audit?.({ pluginId, api: "net.fetch", ok: false,
+                errorCode: error.code, ts: Date.now() });
             }
-            const headers: Record<string, string> = {};
-            res.headers.forEach((value, key) => {
-              headers[key] = value;
-            });
-            const bodyText = await res.text();
-            this.services.audit?.(netFetchAuditEntry(pluginId, url, res.status, headers));
-            return { status: res.status, headers, bodyText };
-          } finally {
-            clearTimeout(timer);
+            throw error;
           }
         },
       },
@@ -5806,6 +5980,19 @@ export class PluginRuntime {
           this.busUnsubscribe(loaded, subscriptionId),
       },
       browser: {
+        reveal: async () => {
+          this.assertPermission(loaded, "browser.cdp");
+          if (!this.services.browser) {
+            throw apiError("UNAVAILABLE", "browser host missing");
+          }
+          await this.services.browser.reveal(this.browserSessionId(pluginId));
+          this.services.audit?.({
+            pluginId,
+            api: "browser.reveal",
+            ok: true,
+            ts: Date.now(),
+          });
+        },
         navigate: async (input: { url?: string; path?: string } = {}) => {
           this.assertPermission(loaded, "browser.cdp");
           if (!this.services.browser) {

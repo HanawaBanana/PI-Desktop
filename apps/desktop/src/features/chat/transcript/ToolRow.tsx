@@ -1,3 +1,4 @@
+import { SubagentStopButton } from "./SubagentStopButton";
 import { PlanHistoryCard } from "./PlanHistoryCard";
 import { planSubmission } from "../../../lib/plan-history";
 import { GeneratedImages } from "./GeneratedImages";
@@ -91,8 +92,6 @@ type ToolRowProps = {
   delegate?: SubagentRun;
   /** Card treatment used when several Task calls form a delegation topology. */
   variant?: "default" | "topology";
-  /** Open the latest detailed-mode tool unless the user took over. */
-  autoOpen?: boolean;
   /** The containing turn renders image results outside its process disclosure. */
   imagesInTurn?: boolean;
   /** Claims the containing activity group when this row is manually used. */
@@ -124,7 +123,6 @@ function toolRowPropsEqual(
   if (
     previous.message !== next.message ||
     previous.variant !== next.variant ||
-    previous.autoOpen !== next.autoOpen ||
     previous.imagesInTurn !== next.imagesInTurn ||
     previous.onUserInteraction !== next.onUserInteraction ||
     !subagentRunsEqual(previous.delegate, next.delegate)
@@ -160,7 +158,7 @@ export const ToolRow = memo(function ToolRow(props: ToolRowProps) {
   );
   const proposal = planSubmission(message);
   if (proposal && variant === "default" && message.toolStatus !== "denied") {
-    return <PlanHistoryCard message={message} proposal={proposal} autoOpen={props.autoOpen} onUserInteraction={props.onUserInteraction} />;
+    return <PlanHistoryCard message={message} proposal={proposal} onUserInteraction={props.onUserInteraction} />;
   }
   const hostRow = <HostToolRow {...props} />;
   return cardEntry ? (
@@ -174,7 +172,6 @@ function HostToolRow({
   message,
   delegate,
   variant = "default",
-  autoOpen = false,
   imagesInTurn = false,
   onUserInteraction,
   delegationStatuses,
@@ -194,12 +191,11 @@ function HostToolRow({
   // (D227). Property reads only, so a streaming row can afford it every tick.
   const run = action === "run" ? runOutcome(message) : null;
   const failed = status === "error" || run === "failed";
-  // Detailed mode opens the last tool of the last activity group. Compact keeps
-  // payloads collapsed so a live burst only updates the header. Failure and
-  // denial stay in the row head without expanding the payload automatically.
+  // A tool call never opens itself: the payload waits for the user, and a
+  // failure or denial stays in the row head either way.
   const revealRequest = useMessageRevealRequest(message.id);
   const disclosure = useAutomaticDisclosure(
-    autoOpen && !failed && status !== "denied",
+    false,
     revealRequest,
     disclosureKey("tool", message.id),
   );
@@ -399,6 +395,7 @@ function HostToolRow({
       aria-label={`${t("chat.toolCall")}: ${rawName}${agentName ? `, ${agentName}` : ""}${modelLabel ? `, ${modelLabel}` : ""}${statusLabel ? `, ${statusLabel}` : ""}`}
     >
       {variant === "topology" ? (
+        <div className="subagent-topology-node-actions">
         <button
           className="subagent-topology-node-header"
           aria-expanded={panelOpen}
@@ -436,7 +433,8 @@ function HostToolRow({
                   title={modelLabel}
                   aria-label={modelLabel}
                 >
-                  {modelLabel}
+                  <span className="subagent-topology-node-model-name">{modelId}</span>
+                  {thinkingLabel ? <span className="subagent-topology-node-thinking"> {thinkingLabel}</span> : null}
                 </span>
               ) : null}
               <span className="subagent-topology-node-status">
@@ -459,6 +457,8 @@ function HostToolRow({
             <span className="tool-spinner" aria-label={t("chat.running")} />
           ) : null}
         </button>
+        {typeof delegationId === "string" && <SubagentStopButton delegationId={delegationId} running={outcome === "running" && !creating} name={agentName} />}
+        </div>
       ) : (
         <div className={`tool-row-head${runHead ? " is-run" : ""}`}>
           <button

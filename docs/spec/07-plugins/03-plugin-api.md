@@ -128,6 +128,55 @@ pi.commands.register(def: {
 pi.commands.unregister(id: string): Promise<void>
 ```
 
+### Composer text transforms (`composer.transform`)
+
+A plugin may contribute explicit, user-invoked text actions through
+`manifest.contributes.composerTransforms`. A non-empty contribution requires
+the `composer.transform` permission. The host only lists actions from a loaded
+plugin whose permission is currently granted; the manifest supplies the action
+title and optional undo title.
+
+```ts
+type PluginComposerTransformInput = {
+  id: string;
+  text: string;
+  modelKey?: string; // current Composer provider/model key; no credentials
+};
+
+type PluginModule = {
+  onComposerTransform?: (
+    input: PluginComposerTransformInput,
+  ) => Promise<string> | string;
+};
+```
+
+The callback receives only the draft text and optional model key. It does not
+receive a session id, transcript, or separate attachment and file-reference
+metadata. The host removes inline file-reference tokens before dispatch and
+restores them after success.
+The callback returns a string; input and output are each capped at 100,000
+characters and the call uses the 110-second plugin-tool timeout. The host
+rechecks the plugin load, declaration, and grant, and audits both outcomes.
+Composer discards results that arrive after an edit, send, or session switch and
+provides one-step undo after success. A plugin that makes a model request
+separately declares the permissions required by that API, such as
+`agent.complete` and `models.list`.
+
+```json
+{
+  "permissions": ["composer.transform"],
+  "contributes": {
+    "composerTransforms": [
+      {
+        "id": "enhance",
+        "title": { "en": "Enhance prompt", "zh-CN": "增强提示词" },
+        "undoTitle": { "en": "Undo", "zh-CN": "撤销" }
+      }
+    ]
+  }
+}
+```
+
 ### speech (`speech.adapter.register`)
 ```ts
 pi.speech.registerAdapter(adapter: {
@@ -341,6 +390,30 @@ Only enabled, authenticated provider rows are returned (API key, OAuth, or
 so a picker page can populate itself. When the host transport is unavailable,
 the call returns an empty list instead of warning (D080).
 
+### Provider entries in Add Service
+
+The Host exposes unconfigured, manifest-declared API-key providers in Settings
+→ Models → Add Service. This is a data-only projection of
+`contributes.providers`; plugins do not register chooser entries at runtime and
+receive no API key. `category` groups the entries and may be a plain string or
+an `{ en, "zh-CN" }` label. The Host saves the key in its existing encrypted
+provider secret store. A configured row remains in the provider list and is
+hidden from Add Service. The `provider.register` grant is sufficient; there is
+no additional permission or plugin API method.
+
+Tiles show the provider name only. Optional `description` copy appears as a
+single-sentence tooltip on hover or keyboard focus; search also checks the
+description. The selected key form shows the endpoint and plugin name for a
+final destination check before saving.
+
+A provider may declare an empty `models` list only when it is API-key based and
+has a `baseUrl`. After the user saves a key, the Host requests that endpoint's
+model list and caches the answer. The cached models are available to the
+plugin-owned row, whose manifest continues to own its endpoint and other
+provider fields. If discovery returns no models, the key remains saved and the
+user can retry from the provider's model controls. Provider count is not capped
+per plugin; the package's existing size limit bounds the manifest.
+
 ### provider OAuth (requires `provider.oauth`)
 
 An OAuth provider contribution needs both `provider.register` and
@@ -430,6 +503,43 @@ session (D333 / D336). Calling this outside a tool execution fails with
 `INVALID_ARGUMENT`. Subagent rows are omitted. An in-flight call of the
 plugin's own tool is stripped from the tail. A compaction summary replaces
 pre-checkpoint history. Combined content is capped at 200k characters.
+
+### session auto-title (requires `session.autoTitle`)
+
+This capability is separate from `session.read`: it never exposes a transcript
+window or arbitrary message lookup. It exists for plugins that generate a title
+after a completed turn.
+
+```ts
+type PluginAutoTitleContext = {
+  sessionId: string
+  expectedTitle: string
+  userPrompt: string // first user message, at most 1,000 characters
+  assistantReply?: string // first assistant reply, at most 500 characters
+  modelKey?: string // providerId/modelId from the session configuration
+}
+
+pi.session.getAutoTitleContext(input: {
+  sessionId: string
+}): Promise<PluginAutoTitleContext | null>
+
+pi.session.setAutoTitle(input: {
+  sessionId: string
+  expectedTitle: string
+  title: string
+}): Promise<{ updated: boolean }>
+```
+
+Context is returned only for an active session whose title source is still
+`default`. That source covers both a new session's placeholder and the
+deterministic first-prompt fallback the core writes itself, so a plugin must
+expect `expectedTitle` to be the current derived text rather than a localized
+placeholder. The host does not return attachments, tool calls, later turns, or
+the rest of the transcript. Title updates accept 1–80 Unicode code points and
+use the exact `expectedTitle` as a compare-and-set; a manual rename or another
+update makes the result `{ updated: false }`. Both methods require
+`session.autoTitle`, which is high risk because the first-turn text can be sent
+to a model by a plugin holding `agent.complete`.
 
 ### plugin-owned sessions (P0/P1; requires the matching permission)
 
@@ -650,9 +760,9 @@ pi.agent.complete(input: {
 }>
 ```
 
-The host resolves credentials and runs a one-shot completion with `tools: []`
-through the same path as Composer prompt enhancement. The plugin never receives
-a secret. `includeSessionContext: true` also requires `session.read` and an
+The host resolves credentials and runs a one-shot completion with `tools: []`.
+The plugin never receives a secret. The standalone prompt-enhancement plugin
+uses this API from its `onComposerTransform` callback. `includeSessionContext: true` also requires `session.read` and an
 in-flight tool session; the host serializes that context and, if `messages` is
 empty, appends `Please respond to the request.` System prompt
 ≤ 32 KiB; combined messages ≤ 200k characters; eight calls per plugin per
@@ -693,6 +803,7 @@ hrefs (D330 / ADR 0168). Other schemes fail with `INVALID_ARGUMENT`.
 
 ### browser (requires `browser.cdp`)
 ```ts
+pi.browser.reveal(): Promise<void>
 pi.browser.navigate(input: { url?: string; path?: string }): Promise<BrowserState | null>
 pi.browser.action(input: { action: "back" | "forward" | "reload" | "stop" }): Promise<void>
 pi.browser.setBounds(hole: { x: number; y: number; width: number; height: number }): Promise<unknown>
@@ -723,6 +834,13 @@ the guest cannot cover chat/composer. `cdp` is deny-by-default; cookie,
 storage, target, and network-interception methods fail with
 `PERMISSION_DENIED`. Session identity for agent calls comes from the in-flight
 `plugins.execute` `sessionId`, not from plugin arguments (D333 / ADR 0170).
+Page operations (`navigate`, `action`, `openExternal`, `getState`, snapshot,
+screenshot, and CDP calls) are available only while the Browser view is
+visible. `reveal()` asks the host to activate the Browser tab for the calling
+session and resolves only after that session's view is visible. A background
+session never takes focus; if it cannot become visible, `reveal()` fails with
+`UNAVAILABLE`. The bundled Browser agent tool calls `reveal()` before each
+operation. `BrowserPreview` remains the live-reloading workspace-file preview.
 
 `getHistory` returns newest-first entries explicitly recorded by the host, with
 text and images interleaved in capture order. Content written through
@@ -781,8 +899,36 @@ pi.net.fetch(input: {
  headers?: Record<string, string>
  body?: string
  timeoutMs?: number
+ redirect?: "follow" | "error" | "manual"
 }): Promise<{ status: number; headers: Record<string, string>; bodyText: string }>
 ```
+
+
+`redirect` is optional: omitted or `follow` preserves the existing policy (up to
+five followed 3xx responses with Location, relative to the current URL, each
+checked against the granted egress policy). Existing method/header/body handling
+is unchanged; this is not a promise of browser Fetch redirect rewriting.
+`manual` returns the first response's status, headers (including Location) and
+body without visiting its target. `error` rejects **any 300–399 response** with
+`REDIRECT_DISALLOWED`, even without Location; it never visits the target. Other
+statuses, including 429, remain normal responses. In follow mode a 3xx without
+Location is returned unchanged; a loop exceeds the five-hop cap with
+`UNAVAILABLE`. One timeout covers the whole chain and response body (`TIMEOUT`).
+Invalid redirect values fail with `INVALID_ARGUMENT` before network I/O.
+
+The host owns redirect handling for both the default and injected single-hop
+transport. Every followed hop still passes the existing permission/egress
+checks; these modes grant no additional network access. Policy refusals are
+audited without response bodies or headers.
+
+Before using the option on a potentially older host, query
+`pi.net.getCapabilities(): Promise<{ fetchRedirectModes: string[] }>` and require
+the desired mode. This read-only query needs no network permission and performs
+no network I/O. A missing method, rejected query, or absent mode means
+unsupported: do not send the request. Older hosts may silently ignore unknown
+fetch options, so passing `redirect` alone is **not** capability detection.
+This API is unreleased; released 0.17.0 and older do not advertise it.
+No same-origin-only mode is introduced by this change.
 
 `fetch` answers with the upstream response unchanged — `status`, `headers`, and
 `bodyText` — so a `429` is data your plugin can read, `Retry-After` included,

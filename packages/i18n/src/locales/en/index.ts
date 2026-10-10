@@ -322,13 +322,6 @@ export const en = {
     moveQueuedPromptDown: "Move down",
     editQueuedPrompt: "Edit",
     editQueuedPromptBusy: "Clear the input before editing this queued message",
-    enhancePrompt: "Enhance prompt",
-    enhancingPrompt: "Enhancing…",
-    undoEnhancement: "Undo enhancement",
-    enhancementFailed: "Prompt enhancement failed",
-    enhancementTimeout:
-      "The rewrite took too long. Try again, or pick a faster enhancement model in Settings.",
-    dismissEnhancementError: "Dismiss enhancement error",
     sendWhileRunning: "Send follow-up · {{shortcut}} to steer",
     steeringUnavailable: "This turn can no longer accept steering. Your draft was kept.",
     nativeSessionBusy: "This native Pi session is still replying. Stop it or wait for the reply to finish before sending.",
@@ -374,6 +367,7 @@ export const en = {
     fileRefMissing: "No file matches {{name}}",
     fileRefRestricted: "{{name}} is outside the locations this app can access",
     fileRefLookupFailed: "Could not check this file reference.",
+    fileManagerUnavailable: "The File Manager is unavailable. The file was opened in the built-in viewer.",
     revealFileInFolder: "Show in folder",
     fileRevealFailed: "Could not show the file in its folder.",
     copyFullPath: "Copy full path",
@@ -405,6 +399,9 @@ export const en = {
     usageThroughput: "{{count}} tokens/s",
     usageThroughputEstimated: "≈ {{count}} tokens/s",
     usageThroughputUnavailable: "—",
+    usageSessionTime: "Total session time",
+    usageModelResponse: "Model response time",
+    usageTimingUnavailable: "Unavailable",
     usageProviderUsage: "Provider usage",
     usageInput: "Input",
     usageOutput: "Output",
@@ -490,6 +487,11 @@ export const en = {
     subagentWorkUnnamed: "What the subagent did",
     subagentProcess: "Activity",
     subagentUnnamed: "Unnamed subagent",
+    stopSubagent: "Stop",
+    stopAllSubagentsShort: "Stop all",
+    stopSubagentNamed: "Stop {{name}}",
+    stopAllSubagents: "Stop all subagents",
+    stoppingSubagents: "Stopping…",
     subagentCoordinator: "Main agent",
     subagentCoordinating_one: "Coordinating {{count}} delegated task",
     subagentCoordinating_other: "Coordinating {{count}} delegated tasks",
@@ -1557,6 +1559,7 @@ sklm: {
     modelsFetchFailed: "Couldn't load models.",
     modelsFetchFailedStatus: "Request failed ({{status}}).",
     modelsFetchNotFound: "This address has no model list.",
+    providerUnavailable: "The selected provider is no longer available.",
     modelsFetchInvalidResponse: "The service did not return a model list.",
     modelsEmptyHint: "Enter a base URL to load models.",
     noModelMatches: "No matching models.",
@@ -1651,34 +1654,6 @@ sklm: {
     fontSizeXl: "Trenta",
     fontSizeScale: "Text size scale",
     fontSizePercent: "{{value}}%",
-    promptEnhancementTitle: "Prompt enhancement",
-    promptEnhancementDesc:
-      "Applies to the Composer's Enhance prompt action. The system prompt is built in; the user template and the enhancement model can be customized.",
-    promptEnhancementCustomTemplate: "Use a custom template",
-    promptEnhancementCustomTemplateDesc:
-      "Replaces the built-in user template with your own. The system prompt stays built in.",
-    promptEnhancementCustomTemplateActive: "Custom template active",
-    promptEnhancementCustomTemplateNeedsTemplate:
-      "Save a custom template first; the switch then chooses between it and the built-in template.",
-    promptEnhancementEdit: "Edit",
-    promptEnhancementModelTitle: "Enhancement prompt",
-    promptEnhancementModel: "Default model",
-    promptEnhancementThinking: "Reasoning",
-    promptEnhancementThinkingDesc:
-      "Reasoning effort for the rewrite. Off is the default and the fastest.",
-    promptEnhancementThinkingOff: "Off (no reasoning)",
-    promptEnhancementModelFollow: "Follow the current model",
-    promptEnhancementModelUnavailable:
-      "Unavailable — enhance will fall back to the current model",
-    promptEnhancementUserTemplate: "User template",
-    promptEnhancementUserTemplateDesc:
-      "Wraps the draft. It must include the draft variable; use the insert button to place it.",
-    promptEnhancementInsertDraft: "Insert draft variable",
-    promptEnhancementRestore: "Restore default",
-    promptEnhancementMissingDraftVariable:
-      "The user template must contain the draft variable, or the draft cannot be sent.",
-    promptEnhancementTooLong: "The user template must be at most 8000 characters.",
-    promptEnhancementSaveError: "Couldn't save the prompt-enhancement settings.",
   },
   project: {
     open: "Open project",
@@ -1888,6 +1863,9 @@ sklm: {
   },
   askTool: {
     title: "A few questions",
+    historyTitle: "Questions and answers",
+    answerLabel: "Answer",
+    skipped: "Skipped",
     progress: "Question {{current}} of {{total}}",
     questionNumber: "Question {{number}}",
     indicatorLabel: "Question status",
@@ -2210,6 +2188,7 @@ importConfirm: "Imported extensions run inside the agent process with the same a
       tools: "Agent tools",
       agentExtension: "Agent extension",
       rendererUi: "Chat UI extension",
+      composerTransform: "Composer actions",
       skills: "Skills",
       themes: "Theme",
       mcp: "MCP server",
@@ -2248,6 +2227,7 @@ importConfirm: "Imported extensions run inside the agent process with the same a
       "agent.tool.register": "Add tools for the agent",
       "agent.prompt.inject": "Adjust agent instructions",
       "agent.complete": "Run a one-shot completion with your models",
+      "composer.transform": "Transform text in the Composer",
       "agent.extension": "Run code inside the agent",
       "renderer.extension": "Draw UI in chat slots",
       "provider.register": "Add providers to the model list",
@@ -2272,6 +2252,7 @@ importConfirm: "Imported extensions run inside the agent process with the same a
       "bus.subscribe": "Receive messages from other plugins",
       "browser.cdp": "Control the work-panel browser",
       "usage.read": "Read usage statistics",
+      "session.autoTitle": "Read first-turn title context and update automatic titles",
     },
     permissionHelp: {
       "ui.panel": "Lets the plugin show its own panel inside the app.",
@@ -2296,6 +2277,8 @@ importConfirm: "Imported extensions run inside the agent process with the same a
       "agent.prompt.inject": "Can change instructions sent to the AI agent.",
       "agent.complete":
         "Can spend your model quota on a one-shot completion. The plugin never receives your API keys.",
+      "composer.transform":
+        "Lets this plugin transform text you explicitly select in the Composer. It receives the draft and selected model key, but no conversation history or attachments.",
       "agent.extension": "Runs ExtensionAPI modules inside the agent process with the same access as the agent's own tools. Enable only code you trust.",
       "renderer.extension":
         "Loads this plugin's renderer module into the app window to draw UI slot components (message action bars, entry extras, tool cards, code-block renderers, composer controls). The module runs in the same document as PI-Desktop. Enable only code you trust.",
@@ -2328,6 +2311,8 @@ importConfirm: "Imported extensions run inside the agent process with the same a
         "Can navigate the work-panel browser, read the page, run JavaScript, and send allowlisted Chrome DevTools commands. Cookie and storage methods are blocked.",
       "usage.read":
         "Lists completed-turn usage facts (paginated token counters and session titles). No message content is included.",
+      "session.autoTitle":
+        "Can read only the first prompt and reply for eligible sessions, then replace an automatic title if it has not been manually changed. It cannot read the full transcript.",
     },
   },
   /**

@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -210,10 +210,18 @@ function createRuntime(
   });
 }
 
+function runtimeTool(runtime: DesktopAgentRuntime, name: string): AgentTool {
+  const internal = runtime as unknown as { agent: { state: { tools: AgentTool[] } } };
+  const tool = internal.agent.state.tools.find((entry) => entry.name === name);
+  if (!tool) throw new Error(`Runtime tool not found: ${name}`);
+  return tool;
+}
+
 /** Minimal pi-ai assistant message; overrides carry the shape under test. */
 function assistantMessage(overrides: {
   content: unknown[];
   stopReason?: string;
+  durationMs?: number;
 }) {
   return {
     role: "assistant",
@@ -230,6 +238,7 @@ function assistantMessage(overrides: {
     },
     stopReason: overrides.stopReason ?? "stop",
     timestamp: 2,
+    ...(overrides.durationMs !== undefined ? { durationMs: overrides.durationMs } : {}),
     content: overrides.content,
   };
 }
@@ -698,6 +707,151 @@ describe("DesktopAgentRuntime configuration matching", () => {
     ).resolves.toEqual({ isError: true, terminate: true });
 
     await runtime.dispose();
+  });
+
+  it.each(["lexical", "directory-link", ...(process.platform === "win32" ? ["windows-case"] : [])])(
+    "shares Edit failure counts across %s file aliases", async (aliasKind) => {
+      const root = await mkdtemp(join(tmpdir(), "pi-edit-identity-"));
+      await mkdir(join(root, "src"));
+      await writeFile(join(root, "src", "example.ts"), "original\n");
+      let aliases = ["src/example.ts", "src/./example.ts", join(root, "src", "..", "src", "example.ts")];
+      if (aliasKind === "directory-link") {
+        await symlink(join(root, "src"), join(root, "linked"), process.platform === "win32" ? "junction" : "dir");
+        aliases = ["src/example.ts", "linked/example.ts", join(root, "linked", "example.ts")];
+      } else if (aliasKind === "windows-case") {
+        aliases = ["src/example.ts", "SRC/EXAMPLE.TS", join(root, "SRC", "example.ts")];
+      }
+      const host = { call: vi.fn(async (method: string, _params?: unknown) => method === "tools.execute"
+        ? { ok: false, isError: true, errorCode: "EDIT_PARSE_FAILED", content: {} }
+        : undefined) };
+      const runtime = createRuntime({ host, projectPath: root });
+      const edit = runtimeTool(runtime, "Edit");
+      try {
+        for (const [index, path] of aliases.entries()) {
+          const result = await edit.execute(`alias-${index}`, { path, tag: "ABCD", ops: "bad ops" });
+          expect(result.terminate).toBe(index === 2 ? true : undefined);
+        }
+        // Bookkeeping must not rewrite arguments or replace Host authority.
+        expect(host.call.mock.calls.filter(([method]) => method === "tools.execute").map(([, params]) => (params as { args: { path: string } }).args.path)).toEqual(aliases);
+      } finally {
+        await runtime.dispose();
+        await rm(root, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it("shares recoverable Edit grace across file aliases", async () => {
+    const root = await mkdtemp(join(tmpdir(), "pi-edit-grace-"));
+    await writeFile(join(root, "example.ts"), "original\n");
+    const host = { call: vi.fn(async (method: string) => method === "tools.execute"
+      ? { ok: false, isError: true, errorCode: "EDIT_TAG_MISMATCH", content: {} }
+      : undefined) };
+    const runtime = createRuntime({ host, projectPath: root });
+    const edit = runtimeTool(runtime, "Edit");
+    try {
+      const aliases = ["example.ts", "./example.ts", join(root, "example.ts"), "sub/../example.ts"];
+      for (const [index, path] of aliases.entries()) {
+        const result = await edit.execute(`grace-${index}`, { path, tag: "ABCD", ops: "PUT 1.=1:\n+fresh" });
+        expect(result.terminate).toBe(index === 3 ? true : undefined);
+      }
+    } finally {
+      await runtime.dispose();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it.each(["Edit", "Write"])("clears alias failure counts and graces after successful %s", async (toolName) => {
+    const root = await mkdtemp(join(tmpdir(), "pi-edit-reset-"));
+    await writeFile(join(root, "example.ts"), "original\n");
+    let callIndex = 0;
+    const host = { call: vi.fn(async (method: string) => {
+      if (method !== "tools.execute") return undefined;
+      return ++callIndex === 4
+        ? { ok: true, content: { tag: "CDEF" } }
+        : { ok: false, isError: true, errorCode: "EDIT_TAG_MISMATCH", content: {} };
+    }) };
+    const runtime = createRuntime({ host, projectPath: root });
+    const edit = runtimeTool(runtime, "Edit");
+    const succeedingTool = runtimeTool(runtime, toolName);
+    try {
+      const args = { path: "example.ts", tag: "ABCD", ops: "PUT 1.=1:\n+fresh", content: "fresh" };
+      for (let i = 0; i < 3; i++) expect((await edit.execute(`before-${i}`, args)).terminate).toBeUndefined();
+      expect((await succeedingTool.execute("success", { ...args, path: join(root, "example.ts") })).isError).toBe(false);
+      for (let i = 0; i < 4; i++) {
+        const result = await edit.execute(`after-${i}`, args);
+        expect(result.terminate).toBe(i === 3 ? true : undefined);
+      }
+    } finally {
+      await runtime.dispose();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps different files' Edit failure budgets independent", async () => {
+    const root = await mkdtemp(join(tmpdir(), "pi-edit-independent-"));
+    await writeFile(join(root, "a.ts"), "a\n");
+    await writeFile(join(root, "b.ts"), "b\n");
+    const host = { call: vi.fn(async (method: string) => method === "tools.execute"
+      ? { ok: false, isError: true, errorCode: "EDIT_PARSE_FAILED", content: {} }
+      : undefined) };
+    const runtime = createRuntime({ host, projectPath: root });
+    const edit = runtimeTool(runtime, "Edit");
+    try {
+      for (const [index, path] of ["a.ts", "./a.ts", "b.ts", join(root, "a.ts")].entries()) {
+        const result = await edit.execute(`independent-${index}`, { path, tag: "ABCD", ops: "bad ops" });
+        expect(result.terminate).toBe(index === 3 ? true : undefined);
+      }
+    } finally {
+      await runtime.dispose();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("uses the scratch root for temporary-session Edit aliases", async () => {
+    const root = await mkdtemp(join(tmpdir(), "pi-scratch-edit-"));
+    await writeFile(join(root, "example.ts"), "original\n");
+    const host = { call: vi.fn(async (method: string) => method === "tools.execute"
+      ? { ok: false, isError: true, errorCode: "EDIT_PARSE_FAILED", content: {} }
+      : undefined) };
+    const runtime = createRuntime({ host, scratchDir: root });
+    const edit = runtimeTool(runtime, "Edit");
+    try {
+      for (const [index, path] of ["example.ts", join(root, "example.ts"), "./example.ts"].entries()) {
+        const result = await edit.execute(`scratch-${index}`, { path, tag: "ABCD", ops: "bad ops" });
+        expect(result.terminate).toBe(index === 2 ? true : undefined);
+      }
+    } finally {
+      await runtime.dispose();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("clears the pre-mutation identity when a successful Edit removes a linked target", async () => {
+    const root = await mkdtemp(join(tmpdir(), "pi-remove-edit-"));
+    await mkdir(join(root, "src"));
+    await writeFile(join(root, "src", "example.ts"), "original\n");
+    await symlink(join(root, "src"), join(root, "linked"), process.platform === "win32" ? "junction" : "dir");
+    let callIndex = 0;
+    const host = { call: vi.fn(async (method: string) => {
+      if (method !== "tools.execute") return undefined;
+      if (++callIndex === 3) {
+        await rm(join(root, "linked", "example.ts"));
+        return { ok: true, content: {} };
+      }
+      return { ok: false, isError: true, errorCode: "EDIT_PARSE_FAILED", content: {} };
+    }) };
+    const runtime = createRuntime({ host, projectPath: root });
+    const edit = runtimeTool(runtime, "Edit");
+    try {
+      const args = { path: "src/example.ts", tag: "ABCD", ops: "bad ops" };
+      expect((await edit.execute("remove-before-1", args)).terminate).toBeUndefined();
+      expect((await edit.execute("remove-before-2", args)).terminate).toBeUndefined();
+      expect((await edit.execute("remove-success", { ...args, path: "linked/example.ts", ops: "REM" })).isError).toBe(false);
+      expect((await edit.execute("remove-after", args)).terminate).toBeUndefined();
+    } finally {
+      await runtime.dispose();
+      await rm(root, { recursive: true, force: true });
+    }
   });
 
   it("terminates repeated failed shell patch recovery", async () => {
@@ -4558,6 +4712,66 @@ describe("DesktopAgentRuntime assistant thinking events", () => {
     await runtime.dispose();
   });
 
+  it.each([
+    ["DashScope/Qwen", '400: {"code":"invalid_parameter_error","message":"Range of input length should be [1, 98304]"}'],
+    ["z.ai", '400: {"code":"1261","message":"Prompt exceeds max length"}'],
+    ["Bedrock", "Validation error: Input is too long for requested model."],
+  ])("reports a second %s overflow with the code its recovery used", async (_provider, errorMessage) => {
+    const onEvent = vi.fn();
+    const runtime = createRuntime({ onEvent });
+    const agent = (runtime as any).agent;
+    const handleAgentEvent = (runtime as any).handleAgentEvent.bind(runtime);
+    const user = { role: "user", content: "hello", timestamp: 1 };
+    const overflowMessage = (timestamp: number) => ({
+      ...assistantMessage({ content: [], stopReason: "error" }),
+      errorMessage,
+      timestamp,
+    });
+
+    agent.prompt = vi.fn(async () => {
+      const failed = overflowMessage(2);
+      agent.state.messages = [user, failed];
+      await handleAgentEvent({ type: "message_start", message: failed });
+      await handleAgentEvent({ type: "message_end", message: failed });
+      await handleAgentEvent({ type: "turn_end" });
+      await handleAgentEvent({ type: "agent_end", messages: [] });
+    });
+    agent.waitForIdle = vi.fn(async () => undefined);
+    const runCompaction = vi.fn(async () => true);
+    (runtime as any).runCompaction = runCompaction;
+    agent.continue = vi.fn(async () => {
+      const failed = overflowMessage(3);
+      await handleAgentEvent({ type: "agent_start" });
+      await handleAgentEvent({ type: "turn_start" });
+      await handleAgentEvent({
+        type: "message_start",
+        message: { role: "assistant", content: [] },
+      });
+      await handleAgentEvent({ type: "message_end", message: failed });
+      await handleAgentEvent({ type: "turn_end" });
+      await handleAgentEvent({ type: "agent_end", messages: [] });
+    });
+
+    await runtime.prompt("hello", "user-1");
+
+    // The first failure was recovered as an overflow...
+    expect(runCompaction).toHaveBeenCalledTimes(1);
+    expect(agent.continue).toHaveBeenCalledTimes(1);
+    // ...so the terminal one is reported as one, not as a provider error.
+    const events = onEvent.mock.calls.map(([envelope]) => (envelope as any).event);
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "error",
+        error: expect.objectContaining({
+          code: "CONTEXT_TOO_LARGE",
+          retriable: false,
+        }),
+      }),
+    );
+
+    await runtime.dispose();
+  });
+
   it("does not recover provider overflow when automatic compaction is disabled", async () => {
     const onEvent = vi.fn();
     const runtime = createRuntime({
@@ -5460,6 +5674,85 @@ describe("DesktopAgentRuntime assistant thinking events", () => {
     expect(terminal.event.message.responseOutputTokens).toBeGreaterThan(0);
     await runtime.dispose();
   });
+});
+
+describe("DesktopAgentRuntime response duration", () => {
+  const fallbackDurations = [
+    { label: "missing", durationMs: undefined },
+    { label: "zero", durationMs: 0 },
+    { label: "non-finite", durationMs: Number.NaN },
+    { label: "negative", durationMs: -1 },
+  ] as const;
+
+  it("uses pi-ai's monotonic duration for a completed response", async () => {
+    const onEvent = vi.fn();
+    const runtime = createRuntime({ onEvent });
+    const internals = runtime as unknown as {
+      handleAgentEvent(event: unknown): Promise<void>;
+      streamStartedAt: number | undefined;
+    };
+
+    await internals.handleAgentEvent({
+      type: "message_start",
+      message: { role: "assistant", content: [] },
+    });
+    // Make the local fallback visibly different from Pi's request duration.
+    internals.streamStartedAt = Date.now() - 2_000;
+    await internals.handleAgentEvent({
+      type: "message_end",
+      message: assistantMessage({
+        content: [{ type: "text", text: "answer" }],
+        durationMs: 47,
+      }),
+    });
+
+    expect(onEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: expect.objectContaining({
+          type: "message_end",
+          message: expect.objectContaining({ responseDurationMs: 47 }),
+        }),
+      }),
+    );
+    await runtime.dispose();
+  });
+
+  it.each(fallbackDurations)(
+    "falls back to the sidecar stopwatch for a $label Pi duration",
+    async ({ durationMs }) => {
+      const onEvent = vi.fn();
+      const runtime = createRuntime({ onEvent });
+      const internals = runtime as unknown as {
+        handleAgentEvent(event: unknown): Promise<void>;
+        streamStartedAt: number | undefined;
+      };
+
+      await internals.handleAgentEvent({
+        type: "message_start",
+        message: { role: "assistant", content: [] },
+      });
+      internals.streamStartedAt = Date.now() - 2_000;
+      await internals.handleAgentEvent({
+        type: "message_end",
+        message: assistantMessage({
+          content: [{ type: "text", text: "answer" }],
+          ...(durationMs !== undefined ? { durationMs } : {}),
+        }),
+      });
+
+      type Envelope = {
+        event?: {
+          type?: string;
+          message?: { responseDurationMs?: number };
+        };
+      };
+      const terminal = onEvent.mock.calls
+        .map(([envelope]) => envelope as Envelope)
+        .find(({ event }) => event?.type === "message_end");
+      expect(terminal?.event?.message?.responseDurationMs).toBeGreaterThanOrEqual(2_000);
+      await runtime.dispose();
+    },
+  );
 });
 
 describe("DesktopAgentRuntime compaction restore", () => {
@@ -7980,7 +8273,37 @@ describe("DesktopAgentRuntime subagents", () => {
     await runtime.dispose();
   });
 
-  it("returns a pending cancellation instead of hanging when a delegate ignores abort", async () => {
+  it("scopes direct cancellation to selected IDs and the owning session", async () => {
+    const runtime = createRuntime({ subagents: [explorer] });
+    const other = createRuntime({ subagents: [explorer] });
+    subagentRuns.deferred = true;
+    subagentRuns.instances.length = 0;
+    try {
+      const start = async (owner: typeof runtime, callId: string) => {
+        const result = await taskTool(owner).execute(callId, { agent: "explorer", task: callId });
+        return String(result.details.delegationId);
+      };
+      const first = await start(runtime, "direct-A");
+      const second = await start(runtime, "direct-B");
+      const foreign = await start(other, "other-session");
+      const stopped = await runtime.stopSubagents([first, first, foreign]);
+      expect(stopped.details.stopped).toMatchObject([{ delegationId: first, status: "stopped" }]);
+      expect((await runtime.stopSubagents([first])).details.stopped).toEqual([]);
+      // Both remaining delegates must still be running to be selected by stop-all.
+      expect((await runtime.stopSubagents()).details.stopped).toMatchObject([
+        { delegationId: second, status: "stopped" },
+      ]);
+      expect((await other.stopSubagents()).details.stopped).toMatchObject([
+        { delegationId: foreign, status: "stopped" },
+      ]);
+    } finally {
+      subagentRuns.deferred = false;
+      await runtime.dispose();
+      await other.dispose();
+    }
+  });
+
+  it.each(["tool", "desktop"])("returns pending cancellation when a delegate ignores %s stop", async (entry) => {
     const runtime = createRuntime({ subagents: [explorer] });
     subagentRuns.calls.length = 0;
     subagentRuns.instances.length = 0;
@@ -7999,9 +8322,9 @@ describe("DesktopAgentRuntime subagents", () => {
 
     vi.useFakeTimers();
     try {
-      const stopping = stop.execute("stop-unresponsive", {
-        delegationIds: [delegationId],
-      });
+      const stopping = entry === "desktop"
+        ? runtime.stopSubagents([delegationId])
+        : stop.execute("stop-unresponsive", { delegationIds: [delegationId] });
       await vi.advanceTimersByTimeAsync(5_000);
       const result = await stopping;
       expect(result.content[0].text).toContain("remain running");
@@ -10062,7 +10385,7 @@ describe("context estimate calibration", () => {
     expect(initialBudget).toBeGreaterThan(raw);
 
     // Two unanchored reports, each costing three times the estimate: CJK text
-    // against the estimator's `chars / 4` constant. Below the sample threshold
+    // against pi-ai's 3.5-characters-per-token estimate. Below the sample threshold
     // the gate has to stay exactly where it was.
     for (let i = 0; i < 2; i++) {
       (runtime as any).inFlightContextEstimate = {

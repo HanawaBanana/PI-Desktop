@@ -938,9 +938,10 @@ The composer renders only controls connected to the active pi session:
 - The model trigger shows only the active model ID. Its menu selects a
   configured provider/default-model pair for the active session and links to
   Agent.
-- The right toolbar exposes one combined model × reasoning trigger immediately
-  before the standalone prompt-enhancement Sparkles action and Send/Abort. The
-  trigger shows a Bot icon, the current model, and reasoning level; `off` omits
+- The right toolbar exposes one combined model × reasoning trigger. Explicitly
+  installed plugins may contribute user-invoked text actions after it; prompt
+  enhancement is not built in. The trigger shows a Bot icon, the current model,
+  and reasoning level; `off` omits
   the level text. Its single `role="menu"`
   popover opens above the trigger at `bottom: calc(100% + 8px)` and starts with
   exactly two current-value entries. When the menu lists more than one
@@ -1121,13 +1122,19 @@ header-height background behind the excluded lane without covering its controls.
 - All platforms retain native edge/corner resizing. On Windows the main window
   disables the frameless `WS_THICKFRAME` rim while Electron 43.6's frameless
   hit test continues to own edge and corner resizing; no border is painted on
-  the left, right, or bottom. The Windows main window uses a 4 DIP rounded
-  hit/draw shape by
-  default: pixels outside its corners have no fill or mouse target. A selected
+  the left, right, or bottom. The Windows main window uses the global
+  `--radius-md` token (12 DIP) as its default corner request. Windows 11 and
+  later use the DWM system-rounded preference for any positive radius and a
+  square preference for radius 0; DWM chooses the actual radius and may decline
+  to round based on window style or environment. Windows builds before 22000
+  retain the existing `contentView` clip and native shape. The Windows 11 path
+  uses an opaque top-level surface, so contributed alpha colors are composited
+  over the resolved built-in theme background. A selected
   plugin theme with `ui.window.appearance` may set `cornerRadius` to an integer
-  from 0 through 24 DIP; removing that theme restores 4 DIP. The shape becomes
-  rectangular while maximized or fullscreen and follows every resize. Native
-  window background colors remain theme-owned inside the shape. Electron's borderless
+  from 0 through 24 DIP; removing that theme restores the 12 DIP global
+  default. Corners become rectangular while maximized or fullscreen; positive
+  values on Windows 11 do not guarantee an exact DIP radius. Native window
+  background colors remain theme-owned. Electron's borderless
   fullscreen fallback fills the display without reporting `isFullScreen()`;
   Main tracks its state so toggling back restores the previous bounds and
   fullscreen geometry is never persisted. Frameless titlebar drag
@@ -1317,6 +1324,10 @@ Implementation: `components/settings/SettingsMenuSelect.tsx`.
 Every dropdown / option-list in Settings **must** use `SettingsMenuSelect`
 instead of the native `Select` (`<select>`) component. Native `Select`
 is reserved for non-Settings contexts where OS-level rendering is acceptable.
+
+Appearance pickers use the scaled `--ds-settings-picker-height` metric.
+`SettingsMenuSelect` triggers keep `--ds-field-height` so they align with
+adjacent form inputs; dense surfaces may override that metric locally.
 
 
 ## 12. State patterns

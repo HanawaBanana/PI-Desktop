@@ -316,6 +316,8 @@ function buildApi() {
     },
     session: {
       getLlmContext: () => call("session.getLlmContext"),
+      getAutoTitleContext: (input) => call("session.getAutoTitleContext", [input ?? {}]),
+      setAutoTitle: (input) => call("session.setAutoTitle", [input ?? {}]),
       list: (input) => call("session.list", [input ?? {}]),
       get: (input) => call("session.get", [input ?? {}]),
       listMessages: (input) => call("session.listMessages", [input ?? {}]),
@@ -385,6 +387,7 @@ function buildApi() {
       openExternal: (url) => call("shell.openExternal", [url]),
     },
     browser: {
+      reveal: () => call("browser.reveal"),
       navigate: (input) => call("browser.navigate", [input ?? {}]),
       action: (input) => call("browser.action", [input]),
       setBounds: (hole) => call("browser.setBounds", [hole]),
@@ -400,6 +403,7 @@ function buildApi() {
       cdp: (input) => call("browser.cdp", [input]),
     },
     net: {
+      getCapabilities: () => call("net.getCapabilities"),
       fetch: (input) => call("net.fetch", [input]),
       // Real-time connections (`net.websocket`). Frames arrive back as
       // `net:websocket:message` host events, so a plugin subscribes with
@@ -638,6 +642,25 @@ async function handleParentCall(method, payload, invocationId, callId) {
         throw error;
       }
       return JSON.parse(text);
+    }
+    case "composer.transform": {
+      const handler = pluginModule?.onComposerTransform;
+      if (typeof handler !== "function") {
+        const error = new Error("plugin does not implement onComposerTransform");
+        error.code = "PLUGIN_TRANSFORM_NO_HANDLER";
+        throw error;
+      }
+      const answer = await handler({
+        id: String(payload?.id ?? ""),
+        text: String(payload?.text ?? ""),
+        ...(typeof payload?.modelKey === "string" ? { modelKey: payload.modelKey } : {}),
+      });
+      if (typeof answer !== "string") {
+        const error = new Error("onComposerTransform must return a text string");
+        error.code = "PLUGIN_INVALID_RESULT";
+        throw error;
+      }
+      return answer;
     }
     case "lifecycle.unload": {
       for (const id of invocations.keys()) cancelInvocation(id, "Plugin unloaded");

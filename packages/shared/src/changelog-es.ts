@@ -2,6 +2,23 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    "version": "0.18.0",
+    "date": "2026-10-09",
+    "highlights": [
+      "Configura el clasificador Jev de TypeSafe desde Añadir servicio y verifica la clave API antes de guardarla.",
+      "Añade desde Añadir servicio proveedores de plugins con clave API, descripciones localizadas y detección de modelos tras configurarlos.",
+      "Las acciones autorizadas de plugins pueden transformar el borrador del Composer y deshacer el cambio; la mejora de prompts ahora es un plugin opcional.",
+      "Los detalles de las herramientas permanecen contraídos hasta que los abras, para mantener visible la respuesta completa.",
+      "Consulta preguntas y respuestas anteriores de AskTool en una tarjeta clara de preguntas y respuestas.",
+      "Genera títulos de sesión con un plugin opcional; el primer mensaje sigue como alternativa y los cambios manuales tienen prioridad.",
+      "Abre enlaces locales a archivos Markdown desde el chat en el Administrador de archivos integrado, incluidos enlaces relativos y referencias a líneas.",
+      "La lista de modelos del Composer ahora muestra los límites de contexto configurados.",
+      "Los plugins pueden inspeccionar o rechazar redirecciones de red; las llamadas fetch existentes siguen las redirecciones de forma predeterminada.",
+      "Detén un subagente en ejecución desde su tarjeta o panel de detalles, o todos los de la sesión actual, sin detener al coordinador.",
+      "Consulta la duración total de la sesión, el tiempo acumulado de respuesta del modelo y su proporción en el panel de uso del contexto.",
+    ],
+  },
+  {
     "version": "0.17.0",
     "date": "2026-10-07",
     "highlights": [

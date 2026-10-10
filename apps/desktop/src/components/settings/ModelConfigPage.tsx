@@ -1,6 +1,6 @@
 /**
- * Model configuration tab: image model selection, the AI service list, and the
- * models.dev enrichment snapshot status.
+ * Model configuration tab: AI services, Jev settings, image model selection,
+ * and the models.dev enrichment snapshot status.
  *
  * API services, plugin-declared services and vendor subscription accounts
  * share one list (D625). An account row still lives and dies through the
@@ -41,6 +41,7 @@ import { ModelConfigImportPanel } from "../../features/settings/imports/ModelCon
 import { ImportToggleButton } from "../../features/settings/import-workbench";
 import { JevSettingsCard } from "./JevSettingsCard";
 import { JEV_SERVICE } from "./service-catalog";
+import { isPluginCatalogSetupForProvider } from "./provider-setup-mode";
 
 type CatalogStatus = {
   loaded: boolean;
@@ -93,6 +94,10 @@ export function ModelConfigPage() {
   // null = closed, "" = add flow, provider id = edit flow.
   const [copyDraft, setCopyDraft] = useState<ProviderCopyDraft | null>(null);
   const [setupFor, setSetupFor] = useState<string | null>(null);
+  const [pluginCatalogSetup, setPluginCatalogSetup] = useState<{
+    providerId: string;
+    pluginName: string;
+  } | null>(null);
 
   // The Jev card opens the same dialog, straight on the Jev service.
   const [jevSetup, setJevSetup] = useState(false);
@@ -169,10 +174,30 @@ export function ModelConfigPage() {
       settings.defaultProviderId === saved.id && firstModelId &&
       !models.some((model) => sameWireId(model.id, settings.defaultModelId ?? "") &&
         !selectedImageIds.some((id) => sameWireId(id, model.id)))
-        ? firstModelId
-        : undefined;
+    ? firstModelId
+    : undefined;
     try {
-      if (imageModelIds !== undefined) {
+      if (pluginCatalogSetup?.providerId === saved.id) {
+        const defaultsProviders = [...providers.filter((provider) => provider.id !== saved.id), saved];
+        const currentDefault = defaultsProviders.find(
+          (provider) => provider.id === settings.defaultProviderId,
+        );
+        const keepsCurrentDefault = !!currentDefault &&
+          providerServesChatModels(currentDefault, imageGenerationCandidates) &&
+          chatModelOptions([currentDefault], imageGenerationCandidates).some(
+            ({ modelId }) => sameWireId(modelId, settings.defaultModelId ?? ""),
+          );
+        if (!keepsCurrentDefault && firstModelId) {
+          const nextSettings = {
+            ...settings,
+            defaultProviderId: saved.id,
+            defaultModelId: firstModelId,
+          };
+          await api.setSettings(nextSettings);
+          useAppStore.setState({ settings: nextSettings });
+        }
+        showToast(t("settings.pluginProviderKeySaved"), { variant: "success" });
+      } else if (imageModelIds !== undefined) {
         const current = await api.getSettings();
         const plan = planImageGenerationDefaults(
           current,
@@ -220,6 +245,7 @@ export function ModelConfigPage() {
       }
       setSetupFor(null);
       setCopyDraft(null);
+      setPluginCatalogSetup(null);
       await refreshProviders();
     } catch (error) {
       showToast(error instanceof Error ? error.message : String(error), {
@@ -241,6 +267,13 @@ export function ModelConfigPage() {
         providers,
       );
       if (!isImageGenerationPickerCandidate(candidates, binding.providerId, binding.modelId)) {
+        // The row offered this binding when it rendered, but the settings read
+        // above no longer lists it: another window, another agent or a
+        // concurrent provider edit changed the candidates in between. Report
+        // the refusal instead of returning silently — a pick that keeps the
+        // previous default with no message reads as a broken menu, and the
+        // runtime would reject the binding on the next request anyway.
+        showToast(t("settings.imageModelSaveFailed"), { variant: "error" });
         return;
       }
       const nextSettings = { ...current, imageGeneration: binding };
@@ -376,28 +409,6 @@ export function ModelConfigPage() {
 
   return (
     <div className="settings-stack model-config-page">
-      {imageGenerationCandidates.length > 0 ? (
-        <section className="settings-card-block">
-          <div className="settings-panel model-default-panel">
-            <ImageGenerationModelRow
-              settings={settings}
-              providers={providers}
-              busy={changingImageModel}
-              onChange={setImageGenerationDefault}
-            />
-          </div>
-        </section>
-      ) : null}
-
-      <JevSettingsCard
-        settings={settings}
-        onConfigure={() => {
-          setJevSetup(true);
-          setSetupFor("");
-        }}
-        statusRevision={jevStatusRevision}
-      />
-
       <section className="settings-card-block">
         <div className="model-config-section-head">
           <div className="settings-card-heading-line">
@@ -522,14 +533,43 @@ export function ModelConfigPage() {
         </Button>
       </div>
 
+      <JevSettingsCard
+        settings={settings}
+        onConfigure={() => {
+          setJevSetup(true);
+          setSetupFor("");
+        }}
+        statusRevision={jevStatusRevision}
+      />
+
+      {imageGenerationCandidates.length > 0 ? (
+        <section className="settings-card-block">
+          <div className="settings-panel model-default-panel">
+            <ImageGenerationModelRow
+              settings={settings}
+              providers={providers}
+              busy={changingImageModel}
+              onChange={setImageGenerationDefault}
+            />
+          </div>
+        </section>
+      ) : null}
+
       {setupFor !== null ? (
         <ProviderSetupDialog
+          key={setupFor}
           provider={editingProvider}
+          pluginCatalogSetup={isPluginCatalogSetupForProvider(
+            pluginCatalogSetup,
+            editingProvider,
+          )}
+          pluginCatalogPluginName={pluginCatalogSetup?.pluginName}
           initialDraft={copyDraft}
           initialService={jevSetup ? JEV_SERVICE : undefined}
           onClose={() => {
             setSetupFor(null);
             setCopyDraft(null);
+            setPluginCatalogSetup(null);
             setJevSetup(false);
           }}
           imageModelIds={editingProvider
@@ -549,9 +589,16 @@ export function ModelConfigPage() {
           onPickSubscription={(vendor) => {
             setSetupFor(null);
             setCopyDraft(null);
+            setPluginCatalogSetup(null);
             // Started here, not in the dialog: a click happens once, where
             // StrictMode would run a mount effect twice and open two browsers.
             startLogin(vendor);
+          }}
+          onPickPluginProvider={(providerId, pluginName) => {
+            setPluginCatalogSetup({ providerId, pluginName });
+            setCopyDraft(null);
+            setJevSetup(false);
+            setSetupFor(providerId);
           }}
         />
       ) : null}

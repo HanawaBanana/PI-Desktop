@@ -2,6 +2,7 @@ mod config_sync_rpc;
 mod scheduled_rpc;
 mod scheduled_tools;
 mod todos;
+mod window_corner_rpc;
 
 use std::io::{self, BufRead, BufReader as StdBufReader, Read, Write};
 use std::path::{Path, PathBuf};
@@ -743,9 +744,9 @@ fn drop_session_side_data(st: &AppState, id: &str) {
 const DEFAULT_LARGE_PASTE_THRESHOLD: i64 = 600;
 const MIN_LARGE_PASTE_THRESHOLD: i64 = 1;
 const MAX_LARGE_PASTE_THRESHOLD: i64 = 1_000_000;
-/// Upper bound for one stored prompt-enhancement template, in characters.
-/// Mirrored by `PROMPT_ENHANCEMENT_TEMPLATE_MAX_LENGTH` in
-/// `packages/shared/src/prompt-enhancement.ts`; keep the two in step.
+/// Upper bound for a legacy prompt-enhancement template, in characters. The
+/// setting remains validated while older profiles and config-sync backups can
+/// still contain it for the optional plugin's one-time migration.
 const MAX_PROMPT_ENHANCEMENT_TEMPLATE_CHARS: usize = 8000;
 /// The placeholder a usable user template must carry.
 const PROMPT_ENHANCEMENT_DRAFT_VARIABLE: &str = "{{draft}}";
@@ -1823,6 +1824,7 @@ async fn handle_request(
                 }
             }))
         }
+        "window.setNativeCornerPreference" => window_corner_rpc::handle(params),
         "keyboard.setGlobalShortcut" => {
             let binding = params
                 .get("binding")
@@ -2230,9 +2232,9 @@ async fn handle_request(
             st.db
                 .set_setting("app", &settings)
                 .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            // Re-pin the marketplace channel in memory. Fetching here would hold
-            // the state lock behind a remote timeout, so the renderer triggers
-            // `market.refresh` after switching channels.
+            // Keep the marketplace channel in memory aligned with settings.
+            // Legacy source values are ignored, so this remains the official
+            // channel; the renderer owns remote refresh timing.
             let (channel, custom_url) =
                 crate::plugins::market_channel_from_settings(Some(&settings));
             st.plugins.set_market_channel(channel, custom_url);
@@ -2640,6 +2642,22 @@ async fn handle_request(
                 .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
             Ok(json!({ "ok": ok }))
         }
+        "session.deriveTitle" => {
+            let id = params
+                .get("id")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| rpc_err(1002, "id required", "INVALID_PARAMS"))?;
+            let title = params
+                .get("title")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| rpc_err(1002, "title required", "INVALID_PARAMS"))?;
+            let title = sessions::normalize_session_title(title)
+                .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
+            let st = state.lock().await;
+            let updated = sessions::derive_session_title(&st.db, id, &title)
+                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
+            Ok(json!({ "updated": updated }))
+        }
         "session.appendMessage" => {
             let session_id = params
                 .get("sessionId")
@@ -2931,6 +2949,24 @@ async fn handle_request(
                 .ok_or_else(|| rpc_err(1002, "pluginId required", "INVALID_PARAMS"))?;
             let st = state.lock().await;
             plugin_sessions::list_messages(&st.db, plugin_id, &params)
+                .map_err(plugin_session_rpc_err)
+        }
+        "plugin.session.autoTitleContext" => {
+            let plugin_id = params
+                .get("pluginId")
+                .and_then(Value::as_str)
+                .ok_or_else(|| rpc_err(1002, "pluginId required", "INVALID_PARAMS"))?;
+            let st = state.lock().await;
+            plugin_sessions::auto_title_context(&st.db, plugin_id, &params)
+                .map_err(plugin_session_rpc_err)
+        }
+        "plugin.session.setAutoTitle" => {
+            let plugin_id = params
+                .get("pluginId")
+                .and_then(Value::as_str)
+                .ok_or_else(|| rpc_err(1002, "pluginId required", "INVALID_PARAMS"))?;
+            let st = state.lock().await;
+            plugin_sessions::set_auto_title(&st.db, plugin_id, &params)
                 .map_err(plugin_session_rpc_err)
         }
         "plugin.session.rename" => {
@@ -8763,6 +8799,75 @@ mod tests {
         .await
         .unwrap_err();
         assert_eq!(missing.data.unwrap()["errorCode"], "NOT_FOUND");
+    }
+
+    #[tokio::test]
+    async fn edit_self_move_rpc_preserves_file_and_read_provenance() {
+        let data_dir = tempfile::tempdir().unwrap();
+        let project = data_dir.path().join("project");
+        fs::create_dir_all(&project).unwrap();
+        let source = project.join("source.txt");
+        fs::write(&source, "original\n").unwrap();
+        let mut app_state = AppState::open(data_dir.path()).unwrap();
+        app_state.handshook = true;
+        let session = sessions::create_session(
+            &app_state.db,
+            Some("Self move".into()),
+            Some("agent".into()),
+            None,
+            None,
+            Some(project.to_string_lossy().into_owned()),
+        )
+        .unwrap();
+        sessions::configure_session_with_thinking(
+            &app_state.db,
+            &session.id,
+            "agent",
+            None,
+            None,
+            None,
+            Some("auto"),
+        )
+        .unwrap();
+        let state = Arc::new(Mutex::new(app_state));
+        let (tx, _rx) = mpsc::unbounded_channel();
+        let read = handle_request(
+            state.clone(),
+            "tools.execute",
+            json!({"sessionId": session.id, "toolCallId": "read-source",
+                "toolName": "Read", "args": {"path": "source.txt"}, "mode": "agent"}),
+            tx.clone(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(read["ok"], true, "{read}");
+        let tag = &read["content"]["tag"];
+        let rejected = handle_request(
+            state.clone(),
+            "tools.execute",
+            json!({"sessionId": session.id, "toolCallId": "self-move",
+                "toolName": "Edit", "args": {"path": "source.txt", "tag": tag,
+                    "ops": "PUT 1.=1:\n+must not land\nMV ./source.txt\n"}, "mode": "agent"}),
+            tx.clone(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(rejected["ok"], false, "{rejected}");
+        assert_eq!(rejected["errorCode"], "EDIT_NO_CHANGE", "{rejected}");
+        assert_eq!(fs::read(&source).unwrap(), b"original\n");
+        // Failure must not invalidate the Read snapshot or poison later edits.
+        let edited = handle_request(
+            state,
+            "tools.execute",
+            json!({"sessionId": session.id, "toolCallId": "valid-edit",
+                "toolName": "Edit", "args": {"path": "source.txt", "tag": tag,
+                    "ops": "PUT 1.=1:\n+changed\n"}, "mode": "agent"}),
+            tx,
+        )
+        .await
+        .unwrap();
+        assert_eq!(edited["ok"], true, "{edited}");
+        assert_eq!(fs::read(&source).unwrap(), b"changed\n");
     }
 
     /// D137: the audit row for a tool call must carry the three segments
