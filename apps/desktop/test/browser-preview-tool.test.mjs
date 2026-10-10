@@ -72,19 +72,20 @@ test("main serves BrowserPreview from its originating session workspace", () => 
 test("renderer routes browser preview events to the originating session", () => {
   assert.match(
     apiSource,
-    /onBrowserPreview:[\s\S]*event: \{ sessionId: string; path\?: string; url\?: string \}/,
+    /onBrowserPreview:[\s\S]*event: \{[\s\S]*sessionId: string;[\s\S]*tabId\?: string;[\s\S]*revealOnly\?: boolean/,
   );
   const previewHandler =
     appSource.match(/api\.onBrowserPreview\([\s\S]*?\n\s*\}\);/)?.[0] ?? "";
   assert.ok(previewHandler, "browser preview renderer handler exists");
   assert.match(
     previewHandler,
-    /openWorkPanelTabForSession\((?:event\.)?sessionId,[\s\S]*browserPluginTab/,
+    /openWorkPanelTabForSession\(\s*event\.sessionId,[\s\S]*browserPluginTabForReveal/,
   );
   assert.doesNotMatch(
     appSource,
     /api\.onBrowserPreview\(\(\) => \{\s*useAppStore\.getState\(\)\.openWorkPanelTab/,
   );
+  assert.match(appSource, /event\.revealOnly/);
   assert.match(appSource, /offBrowserPreview\(\);/);
 });
 
@@ -108,25 +109,42 @@ test("agent runtime exposes BrowserPreview in every mode and prompts for it", ()
   assert.match(runtimeSource, /live-reloads/);
 });
 
-test("Browser tool prompt requires the work-panel view to stay visible", () => {
-  assert.match(
-    browserPluginSource,
-    /Before any browser operation, ensure the Browser view is open and visible in the work panel/,
-  );
-  assert.match(
-    browserPluginSource,
-    /For a workspace HTML file, call BrowserPreview first; it opens and reveals a Browser tab/,
-  );
-  assert.match(
-    browserPluginSource,
-    /For other URLs, open or activate Browser from the work-panel launcher before navigating/,
-  );
-  assert.match(
-    browserPluginSource,
-    /If you cannot make the view visible, ask the user to open it and wait before continuing/,
-  );
-  assert.match(
-    browserPluginSource,
-    /Run only after confirming the Browser view is open and visible in the work panel/,
-  );
+test("Browser tool automatically reveals its view before browser operations", async () => {
+  assert.match(browserPluginSource, /Browser operations automatically reveal the work-panel view/);
+  assert.match(browserPluginSource, /Do not ask the user to open Browser manually/);
+  assert.match(browserPluginSource, /await pi\.browser\.reveal\(\)/);
+
+  let registeredTool;
+  const calls = [];
+  const previousPi = globalThis.pi;
+  globalThis.pi = {
+    agent: {
+      registerTool: async (tool) => { registeredTool = tool; },
+      unregisterTool: async () => {},
+    },
+    browser: {
+      reveal: async () => { calls.push("reveal"); },
+      snapshot: async () => {
+        calls.push("snapshot");
+        return { tree: "- e1 WebArea", url: "https://fixture.invalid", title: "Fixture" };
+      },
+    },
+  };
+  try {
+    const plugin = await import("../resources/plugins/pi.browser/main.js");
+    await plugin.onLoad();
+    const result = await registeredTool.execute({ action: "snapshot" });
+    assert.deepEqual(calls, ["reveal", "snapshot"]);
+    assert.deepEqual(result, {
+      ok: true,
+      action: "snapshot",
+      tree: "- e1 WebArea",
+      url: "https://fixture.invalid",
+      title: "Fixture",
+    });
+    await plugin.onUnload();
+  } finally {
+    if (previousPi === undefined) delete globalThis.pi;
+    else globalThis.pi = previousPi;
+  }
 });
