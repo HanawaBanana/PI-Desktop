@@ -736,8 +736,8 @@ controls.
 ### 3.9a Project status contract (issue #1441)
 
 A project header reports what its own conversations and scheduled runs are doing
-even while the group is collapsed, and it does so with one number rather than a
-row of labels. The aggregate reads state the renderer already holds — the row's
+even while the group is collapsed, and it does so with one small mark rather
+than a row of labels. The aggregate reads state the renderer already holds — the row's
 listed conversations, the unfiltered session list (an automation transcript
 stays in the store even though the sidebar drops it from the list), the running
 map, the unread outcome map, the pending permission/ask/plan sets, and the
@@ -746,13 +746,13 @@ the run broadcast.
 
 | Element | Contract |
 |---|---|
-| The number | One trailing count on the project header, present only while that project has something to report: the work in flight (conversations plus scheduled runs) while any runs, otherwise the unread results. It is a label and not a control — nothing new to click, and the header keeps its own expand/collapse semantics and hit area |
-| Running | Warning tone while work is in flight |
-| Scheduled runs | Counted in the same number because an automation transcript never returns to the conversation list (#1298); the sentence is where the split is named |
-| Waiting for the reader | Purple, taking precedence over the running tone, with the session row's own bounded pulse so colour is not the only signal; a pending permission, ask, or Plan all count |
-| Results | Once nothing runs, the same number reports the unread results in the success tone, read through the session row's own not-looked-at-yet rule, so opening a conversation drops its share of the count; any failed result turns the number to the error tone |
-| The sentence | Hovering or keyboard-focusing the row appends the full sentence to the hint the row already shows (`/path — Running 2 · Scheduled 1`), and the header's accessible description carries the same sentence, so the number is explained without a pointer |
-| Theme and motion | Semantic tokens only; the waiting state animates at most twice and stops under `prefers-reduced-motion` |
+| The mark | One trailing mark on the project header, present only while that project has something to report, and never a second label: the session rows' own running dot while work is in flight, or one quiet count once a result waits to be read |
+| Running | A 6px warning dot, the session rows' own language, at the row's trailing edge and below the project's active dot in weight |
+| Scheduled runs | Counted in the same mark because an automation transcript never returns to the conversation list (#1298); the sentence is where the split is named |
+| Waiting for the reader | The same dot in purple, taking precedence over the running dot, with its bounded pulse so colour is not the only signal; a pending permission, ask, or Plan all count |
+| Results | Once nothing runs, an unread result earns one hairline-ringed count in the secondary text tone — the error tone with its own tint when a result failed — read through the session row's own not-looked-at-yet rule, so opening a conversation drops its share |
+| The sentence | Hovering or keyboard-focusing the row shows the hint on two lines — the path, then what the project is doing (`Running 2 · Scheduled 1`) — and the header's accessible description carries the same sentence, so the mark is explained without a pointer |
+| Theme and motion | Semantic tokens only; the dot animates at most twice and stops under `prefers-reduced-motion` |
 
 ### 3.10 Local profile footer contract
 
@@ -4246,8 +4246,8 @@ TASKS (2)                     │ Nightly dependency check   [Enabled] [Run now]
 - A run is announced to the renderer when the host admits it — manually or from
   the scheduler — and again when it settles or fails to dispatch, which is how
   its project's header in the sidebar reports it while the automation transcript
-  stays out of the conversation list: the row's number covers the run and the
-  row's hint names it. See §3.9a.
+  stays out of the conversation list: the row's dot covers the run and the row's
+  hint names it. See §3.9a.
 - Above 900px the task column sticks below the titlebar band; below it the
   column stacks above the page.
 - Motion: colour and chevron transitions only, disabled under

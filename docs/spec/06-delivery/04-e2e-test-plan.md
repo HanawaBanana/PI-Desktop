@@ -17025,16 +17025,16 @@ host-created files. The full app's file-preview viewer is covered separately.
   Ask/Plan decision, and with a failed turn. 5) Read the row's hint by hovering the
   project's title and again by focusing it from the keyboard. 6) Reload the
   renderer while a run is still in flight.
-- **Expected**: The collapsed project's header shows one number: the work in
-  flight, with the scheduled run counted in it and split out by the sentence.
-  The second project's run never counts here. A session that waits for the
-  reader turns the number purple and the hint names it first. When one turn
-  finishes while another still runs, the number keeps reporting the work in
-  flight; once nothing runs, it takes the success tone and reports the unread
-  results, and that number drops as each conversation is opened, exactly like
-  the row's own outcome badge. The number adds no target of its own: the row
-  shows it, explains it on hover or keyboard focus, and clicking it behaves
-  like the rest of the header. After a reload a run that started
+- **Expected**: The collapsed project's header carries one small mark and no text.
+  While any of that project's conversations or scheduled runs is in flight it is
+  the session rows' own running dot, with the scheduled run counted in it and
+  split out by the hint. The second project's run never counts here. A session
+  that waits for the reader turns the dot purple and the hint names it first.
+  When one turn finishes while another still runs, the dot stays; once nothing
+  runs, the mark becomes one quiet count of the unread results, and that count
+  drops as each conversation is opened, exactly like the row's own outcome
+  badge. The mark adds no target of its own: the row shows it, explains it on
+  hover or keyboard focus, and clicking it behaves like the rest of the header. After a reload a run that started
   before it is still reported.
 - **Specs linked**: `04-ux/08-component-spec.md` §3.4, §3.9a, §20A.4;
   E2E-SCHEDULED-desktop-automation-lifecycle.
