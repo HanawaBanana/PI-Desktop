@@ -9,6 +9,7 @@ export const enEntries: ChangelogEntry[] = [
       "Add plugin-owned API-key services from Add Service, with localized descriptions and model discovery after setup.",
       "Authorized plugin actions can transform a Composer draft with undo; prompt enhancement now runs as an optional plugin.",
       "Tool details stay collapsed until opened, keeping the completed answer in view.",
+      "Review past AskTool questions and answers in a clear Q&A card.",
       "Generate session titles with an optional plugin while keeping first-prompt fallback and manual renames.",
       "Open local Markdown links from chat in the bundled File Manager, including relative links and line references.",
       "Show configured context-window limits in the Composer's model list.",

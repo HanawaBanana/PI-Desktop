@@ -9,6 +9,7 @@ export const deEntries: ChangelogEntry[] = [
       "Fügen Sie über „Dienst hinzufügen“ Plugin-eigene API-Schlüssel-Dienste hinzu, mit lokalisierten Beschreibungen und Modellerkennung nach der Einrichtung.",
       "Autorisierte Plugin-Aktionen können den Composer-Entwurf ändern und lassen sich rückgängig machen; die Prompt-Verbesserung steckt jetzt in einem optionalen Plugin.",
       "Tool-Details bleiben eingeklappt, bis Sie sie öffnen, damit die fertige Antwort im Blick bleibt.",
+      "Sehen Sie frühere AskTool-Fragen und -Antworten in einer übersichtlichen Frage-Antwort-Karte.",
       "Erzeugen Sie Sitzungstitel mit einem optionalen Plugin; die erste Eingabe bleibt als Ersatz erhalten und manuelle Umbenennungen haben Vorrang.",
       "Öffnen Sie lokale Markdown-Links aus dem Chat im integrierten Dateimanager, auch relative Links und Zeilenverweise.",
       "Die Modellliste im Composer zeigt jetzt konfigurierte Kontextfensterlimits.",
