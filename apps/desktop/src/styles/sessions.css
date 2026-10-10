@@ -363,30 +363,45 @@
 }
 
 
-/* A project row keeps one number while its conversations are folded away (issue
-   #1441): how much of that project is going on, or what is waiting to be read
-   once nothing runs. The sentence behind it is the row's own hover hint, and
-   the tone is the session row's running language — the waiting state keeps its
-   bounded pulse so colour is never the only signal. */
-.project-status {
+/* While a project's conversations are folded away its header carries one small
+   mark (issue #1441): the session rows' own running dot while work is in
+   flight, and a quiet count only once a result is waiting to be read. Both sit
+   at the row's trailing edge, below the project's own active dot in weight, and
+   the sentence behind them is the row's hover hint. */
+.project-status-dot {
+  width: 6px;
+  height: 6px;
   flex: 0 0 auto;
   margin-left: auto;
-  padding-left: 6px;
-  color: var(--ds-warning);
+  border-radius: var(--radius-full);
+  background: var(--ds-warning);
+  animation: sidebar-status-breathe 1.6s ease-in-out 2;
+}
+
+.project-status-dot.attention {
+  background: var(--ds-purple);
+  animation: sidebar-status-pulse-purple 1.2s ease-in-out 2;
+}
+
+.project-status-badge {
+  display: inline-flex;
+  min-width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  padding: 0 4px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-full);
+  color: var(--ds-text-secondary);
   font-size: var(--text-2xs);
   font-variant-numeric: tabular-nums;
 }
 
-.project-status.attention {
-  color: var(--ds-purple);
-  animation: sidebar-status-pulse-purple 1.2s ease-in-out 2;
-}
-
-.project-status.settled {
-  color: var(--ds-success);
-}
-
-.project-status.failed {
+.project-status-badge.failed {
+  border-color: color-mix(in oklab, var(--ds-error) 40%, transparent);
+  background: color-mix(in oklab, var(--ds-error) 10%, transparent);
   color: var(--ds-error);
 }
 @keyframes sidebar-status-breathe {
@@ -420,7 +435,7 @@
   .thread-item-status.permission::before {
     animation: none;
   }
-  .project-status.attention {
+  .project-status-dot {
     animation: none;
   }
 }

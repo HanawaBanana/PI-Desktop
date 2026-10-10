@@ -39,38 +39,40 @@ test("a project row derives its status from state the renderer already holds", (
   assert.doesNotMatch(attentionBlock, /pendingApproval\w*\.length > 0 \? 1 : 0/);
 });
 
-test("a project row keeps one number and no status control of its own", () => {
+test("a project row shows a light dot while running and a count once a result waits", () => {
   const renderBlock = sidebarSource.match(/const renderProjectGroup =[\s\S]*?\n {2}\};/)?.[0] ?? "";
   assert.match(renderBlock, /const collapsedProject = entry\.meta\.collapsed/);
   // The row reports; it does not add a target of its own (no button, no
   // data-action, nothing new for the header's click to yield to).
   assert.doesNotMatch(renderBlock, /data-action="project-status"/);
   assert.doesNotMatch(renderBlock, /statusTarget/);
-  const number = renderBlock.match(
-    /<span className=\{`project-status \$\{statusTone\}`\} aria-hidden="true">\s*\{statusCount\}\s*<\/span>/,
+  assert.match(
+    renderBlock,
+    /className=\{`project-status-dot \$\{status\.needsAttention > 0 \? "attention" : ""\}`\}/,
+    "work in flight is the session rows' own dot, never a number",
+  );
+  const badge = renderBlock.match(
+    /className=\{`project-status-badge \$\{status\.failed > 0 \? "failed" : ""\}`\}[\s\S]*?\{unreadResults\}/,
   )?.[0] ?? "";
-  assert.ok(number, "the row's own number is what stays visible");
-  assert.doesNotMatch(number, /onClick/);
-  assert.match(
-    renderBlock,
-    /const statusCount = status\.total > 0 \? status\.total : status\.finished \+ status\.failed;/,
-    "one number: what is going on, or what is waiting to be read",
-  );
-  assert.match(
-    renderBlock,
-    /const statusTone =\n\s+status\.total > 0\n\s+\? status\.needsAttention > 0\n\s+\? "attention"\n\s+: "running"\n\s+: status\.failed > 0\n\s+\? "failed"\n\s+: "settled";/,
-    "the tone describes that number's own state",
-  );
-  // The number is a child of the header's own title button, so the row's
-  // existing hover hint is what explains it — one surface, not a second one.
+  assert.ok(badge, "a count appears only for unread results");
+  assert.match(renderBlock, /const unreadResults = status\.finished \+ status\.failed;/);
+  // One mark at a time: the badge is the other branch of the same choice.
+  assert.match(renderBlock, /\{status\.total > 0 \? \([\s\S]*?\) : unreadResults > 0 \? \(/);
+  assert.doesNotMatch(renderBlock, /onClick=\{\(\) => \{\s*setCollapsed\(entry\.path, false\)/);
+  // The mark is a child of the header's own title button, so the row's existing
+  // hover hint is what explains it — one surface, not a second one.
   assert.ok(
-    renderBlock.indexOf("project-status ${statusTone}") <
-      renderBlock.indexOf("</TooltipButton>"),
-    "the number is hovered through the row's own hint",
+    renderBlock.indexOf("project-status-dot") < renderBlock.indexOf("</TooltipButton>"),
+    "the mark is hovered through the row's own hint",
   );
   assert.match(
     renderBlock,
-    /tooltip=\{statusSummary \? `\$\{entry\.path\} — \$\{statusSummary\}` : entry\.path\}/,
+    /tooltip=\{statusSummary \? `\$\{entry\.path\}\\n\$\{statusSummary\}` : entry\.path\}/,
+  );
+  assert.match(
+    renderBlock,
+    /tooltipClassName="ui-tooltip-path ui-tooltip-path-status"/,
+    "the hint keeps the path and the sentence on their own lines",
   );
   assert.match(
     renderBlock,

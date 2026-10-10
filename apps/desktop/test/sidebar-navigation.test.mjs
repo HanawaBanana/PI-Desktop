@@ -250,7 +250,7 @@ test("project rows expose folder actions and full-path hover", () => {
   // doing (#1441); the delay and the described-by link stay the row's own.
   assert.match(
     sidebarSource,
-    /className="sidebar-session-group-title project-toggle"[\s\S]*?tooltip=\{statusSummary \? `\$\{entry\.path\} — \$\{statusSummary\}` : entry\.path\}[\s\S]*?tooltipDelayMs=\{500\}[\s\S]*?aria-describedby=\{`\$\{projectId\}-path-description`\}/,
+    /className="sidebar-session-group-title project-toggle"[\s\S]*?tooltip=\{statusSummary \? `\$\{entry\.path\}\\n\$\{statusSummary\}` : entry\.path\}[\s\S]*?tooltipDelayMs=\{500\}[\s\S]*?aria-describedby=\{`\$\{projectId\}-path-description`\}/,
   );
   assert.match(sidebarSource, /<TooltipButton/);
   assert.match(globalStyles, /\.ui-tooltip-path\s*\{[^}]*width:\s*max-content/);

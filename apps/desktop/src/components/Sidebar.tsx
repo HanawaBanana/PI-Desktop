@@ -1872,18 +1872,11 @@ export function Sidebar({
     if (status.settled) {
       statusParts.push(t("nav.projectStatusSettled", { count: status.finished + status.failed }));
     }
-    // The row keeps one number (issue #1441): how much is going on, or what is
-    // waiting to be read once nothing runs. The sentence behind it is hover.
+    // One trailing mark, never a second label (issue #1441): the session rows'
+    // own dot while work is in flight, and a count only once a result is
+    // waiting to be read. Everything else lives in the row's hover sentence.
     const statusSummary = statusParts.join(" · ");
-    const statusCount = status.total > 0 ? status.total : status.finished + status.failed;
-    const statusTone =
-      status.total > 0
-        ? status.needsAttention > 0
-          ? "attention"
-          : "running"
-        : status.failed > 0
-          ? "failed"
-          : "settled";
+    const unreadResults = status.finished + status.failed;
     const projectId = projectDomId(entry.key);
     const isMenuOpen = projectMenu === entry.key;
 
@@ -1984,9 +1977,9 @@ export function Sidebar({
             type="button"
             id={projectId}
             className="sidebar-session-group-title project-toggle"
-            tooltip={statusSummary ? `${entry.path} — ${statusSummary}` : entry.path}
+            tooltip={statusSummary ? `${entry.path}\n${statusSummary}` : entry.path}
             tooltipDelayMs={500}
-            tooltipClassName="ui-tooltip-path"
+            tooltipClassName="ui-tooltip-path ui-tooltip-path-status"
             ariaLabel={entry.name}
             aria-describedby={`${projectId}-path-description`}
             aria-expanded={!collapsedProject}
@@ -2024,9 +2017,17 @@ export function Sidebar({
             )}
             <span>{entry.name}</span>
             {entry.active ? <span className="sidebar-project-active-dot" aria-label={t("project.active", { defaultValue: "Active" })} /> : null}
-            {statusCount > 0 ? (
-              <span className={`project-status ${statusTone}`} aria-hidden="true">
-                {statusCount}
+            {status.total > 0 ? (
+              <span
+                className={`project-status-dot ${status.needsAttention > 0 ? "attention" : ""}`}
+                aria-hidden="true"
+              />
+            ) : unreadResults > 0 ? (
+              <span
+                className={`project-status-badge ${status.failed > 0 ? "failed" : ""}`}
+                aria-hidden="true"
+              >
+                {unreadResults}
               </span>
             ) : null}
           </TooltipButton>
