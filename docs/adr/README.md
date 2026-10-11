@@ -20,6 +20,10 @@ Each ADR includes:
 
 | ID | Title | Status |
 |---|---|---|
+| device-local-project-lists-in-config-sync | [Device-local project lists in configuration sync](device-local-project-lists-in-config-sync.md) | Accepted |
+| s3-only-configuration-backup-sync | [S3-only encrypted configuration backup and synchronization](s3-only-configuration-backup-sync.md) | Accepted; supersedes WebDAV decisions in 0300 / 0301 |
+| remote-provider-import | [Explicit provider import into a running remote Host](remote-provider-import.md) | Accepted for the experimental SSH MVP |
+| remote-project-home-workflow | [Remote projects in the shared Chat home workflow](remote-project-home-workflow.md) | Accepted |
 | composer-mcp-invocations | [Composer MCP Invocations](composer-mcp-invocations.md) | Accepted |
 | chronological-system-transcript | [Preserve chronological model system state](chronological-system-transcript.md) | Accepted |
 | mcp-tool-approval-risk | [User MCP tools keep the normal approval path](mcp-tool-approval-risk.md) | Accepted |
@@ -336,8 +340,8 @@ Each ADR includes:
 | 0297 | [Provider-hosted web search as an adapter capability](0297-provider-hosted-web-search-adapter-capability.md) | Accepted |
 | 0298 | [The app ships no fonts](0298-remove-bundled-fonts.md) | Accepted (D598; amends ADR 0083 / D232) |
 | 0299 | [Subagent context budget and delegate compaction](0299-subagent-context-budget.md) | Accepted for implementation (amends ADR 0064; extends ADR 0062 / ADR 0279) |
-| 0300 | [Host-owned encrypted portable configuration sync](0300-host-owned-encrypted-portable-configuration-sync.md) | Accepted for implementation |
-| 0301 | [Explicit append-only WebDAV compatibility mode](0301-explicit-append-only-webdav-compatibility-mode.md) | Accepted for implementation |
+| 0300 | [Host-owned encrypted portable configuration sync](0300-host-owned-encrypted-portable-configuration-sync.md) | Partially superseded by S3-only configuration backup/sync |
+| 0301 | [Explicit append-only WebDAV compatibility mode](0301-explicit-append-only-webdav-compatibility-mode.md) | Superseded by S3-only configuration backup/sync |
 | 0302 | [A failed compaction keeps the recent window, and an oversized summary is chunked](0302-compaction-fallback-recent-window-and-chunked-summary.md) | Accepted for implementation (issue #827; amends ADR 0049 / ADR 0282) |
 | 0303 | [A skill package carries resources far above the document cap](0303-skill-package-resource-limits.md) | Accepted for implementation (amends ADR 0300) |
 | 0304 | [Trust the network endpoints the user enters themselves](0304-user-supplied-endpoint-trust.md) | Accepted for implementation (amends ADR 0243 / 0245 / 0247; follows ADR 0142 / 0257 / 0300) |

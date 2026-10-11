@@ -6,6 +6,7 @@ export const enEntries: ChangelogEntry[] = [
     date: "2026-10-09",
     highlights: [
       "Set up TypeSafe's Jev classifier from Add Service and verify its API key before saving.",
+      "Find Cloud sync in packaged Settings with its Experimental badge. Project lists stay on each device.",
       "Add plugin-owned API-key services from Add Service, with localized descriptions and model discovery after setup.",
       "Authorized plugin actions can transform a Composer draft with undo; prompt enhancement now runs as an optional plugin.",
       "Tool details stay collapsed until opened, keeping the completed answer in view.",

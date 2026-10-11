@@ -1,4 +1,7 @@
 import { IconClock } from "./icons";
+import { RemoteProjectGroups } from "./remote/RemoteProjectGroups";
+import { groupRemoteProjectSessions } from "../lib/remote-project-catalog";
+import { isRemoteSession, sessionAllows } from "../lib/remote-session-safety";
 import {
   useCallback,
   useEffect,
@@ -983,14 +986,16 @@ export function Sidebar({
       session: { ...session, title: taskTitle(session.title) },
       target,
       temporary,
-      space: temporary ? t("nav.hoverCardTemporarySpace") : entry?.name ?? projectName(projectPath),
+      space: isRemoteSession(session)
+        ? `${session.remoteWorkspaceLabel ?? t("remote:workspace")} · ${session.remoteHostLabel ?? t("remote:remote")}`
+        : temporary ? t("nav.hoverCardTemporarySpace") : entry?.name ?? projectName(projectPath),
       branch: entry?.branch,
     });
   }, [projectEntriesByPath, revealSessionHoverCard, t, taskTitle]);
 
   const temporarySessions = useMemo(
     () => filtered
-      .filter((session) => !normalizeProjectPath(session.projectPath))
+      .filter((session) => !normalizeProjectPath(session.projectPath) && !(isRemoteSession(session) && session.remoteProjectId))
       .sort(compareSessions),
     [filtered, compareSessions],
   );
@@ -998,6 +1003,9 @@ export function Sidebar({
     () => temporarySessions.filter((session) => !pinnedSessionIds.has(session.id)),
     [temporarySessions, pinnedSessionIds],
   );
+  const remoteProjectGroups = useMemo(() => groupRemoteProjectSessions(
+    filtered.filter((session) => isRemoteSession(session) && !pinnedSessionIds.has(session.id)), compareSessions,
+  ), [filtered, pinnedSessionIds, compareSessions]);
   // Flat ordered list of every visible session id — used for Shift+click range selection.
   const flatSessionOrder = useMemo(() => {
     const ids: string[] = [];
@@ -1009,10 +1017,11 @@ export function Sidebar({
         if (!pinnedSessionIds.has(s.id)) ids.push(s.id);
       }
     }
+    for (const group of remoteProjectGroups) for (const session of group.sessions) ids.push(session.id);
     // Then temporary (standalone) sessions
     for (const s of temporarySessionHistory) ids.push(s.id);
     return ids;
-  }, [pinnedSessions, projectEntries, pinnedSessionIds, temporarySessionHistory]);
+  }, [pinnedSessions, projectEntries, pinnedSessionIds, temporarySessionHistory, remoteProjectGroups]);
 
   /** Handle multi-select click on a session row. Returns true if the click was consumed by multi-select. */
   const handleMultiSelectClick = (event: React.MouseEvent, sessionId: string): boolean => {
@@ -1436,6 +1445,7 @@ export function Sidebar({
   };
 
   const forkSession = async (session: SessionSummary) => {
+    if (!sessionAllows(session, "canEditMessages")) return;
     closeMenus(false);
     try {
       await forkSessionAction(session.id);
@@ -1470,6 +1480,7 @@ export function Sidebar({
   };
 
   const openSessionPath = async (session: SessionSummary) => {
+    if (isRemoteSession(session)) return;
     closeMenus(false);
     try {
       await api.openSessionScratchPath(session.id);
@@ -1545,6 +1556,7 @@ export function Sidebar({
 
   const moveSessionToProject = useCallback(
     async (sessionId: string, projectPath: string, projectName: string) => {
+      if (sessionId.startsWith("remote:")) return;
       // A running turn owns the current project's instructions, tools, and
       // working directory; the host rejects the move as well.
       if (runningSessions[sessionId]) {
@@ -1732,9 +1744,9 @@ export function Sidebar({
         key={session.id}
         className={`thread-item ${active ? "active" : ""} ${archived ? "archived" : ""} ${draggingSessionId === session.id ? "is-dragging" : ""} ${selectedIds.has(session.id) ? "selected" : ""}`}
         data-sidebar-session-row={session.id}
-        draggable={!running}
+        draggable={!running && !isRemoteSession(session)}
         onDragStart={(event) => {
-          if (running) {
+          if (running || isRemoteSession(session)) {
             event.preventDefault();
             return;
           }
@@ -1800,6 +1812,7 @@ export function Sidebar({
           {session.source === "pi-native" ? (
             <span className="thread-item-source" title="Native Pi session">Pi</span>
           ) : null}
+          {isRemoteSession(session) && <span className="thread-item-source" title={session.remoteHostLabel}>{t("remote:remote")}</span>}
           <span className="thread-item-title">{taskTitle(session.title)}</span>
           {options?.global ? (
             <span className="thread-item-project">
@@ -2248,7 +2261,7 @@ export function Sidebar({
                 ? t("nav.restoreTask", { defaultValue: "Restore" })
                 : t("nav.archiveTask", { defaultValue: "Archive" })}
             </button>
-            {session.source !== "pi-native" ? (
+            {session.source !== "pi-native" && sessionAllows(session, "canEditMessages") ? (
               <button
                 type="button"
                 role="menuitem"
@@ -2269,7 +2282,7 @@ export function Sidebar({
               <IconCopy size={14} />
               {t("nav.copySessionLink")}
             </button>
-            {settings?.developerMode === true ? (
+            {settings?.developerMode === true && !isRemoteSession(session) ? (
               <>
                 <button
                   type="button"
@@ -2580,6 +2593,8 @@ export function Sidebar({
               </div>
             </section>
           )}
+          <RemoteProjectGroups groups={remoteProjectGroups}
+            renderSessions={(sessions) => renderSessionRows(sessions, { temporary: false })} />
         </div>
 
         <div className="sidebar-footer no-drag">

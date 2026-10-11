@@ -417,7 +417,8 @@ manifest did not name:
   disabled.
   Stopping the calling session cancels that session's in-flight MCP request and
   sends `notifications/cancelled` to the server. A shared server connection and
-  calls owned by other sessions remain active.
+  calls owned by other sessions remain active. A request that times out is
+  cancelled the same way; `initialize` is never cancelled.
 
 ## 8.2 Desktop control and device access
 

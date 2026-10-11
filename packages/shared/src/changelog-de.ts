@@ -6,6 +6,7 @@ export const deEntries: ChangelogEntry[] = [
     "date": "2026-10-09",
     "highlights": [
       "Richten Sie den Jev-Klassifizierer von TypeSafe über „Dienst hinzufügen“ ein; der API-Schlüssel wird vor dem Speichern geprüft.",
+      "Cloud-Synchronisierung ist in den Einstellungen der installierten Version verfügbar und als experimentell gekennzeichnet. Projektlisten bleiben auf dem jeweiligen Gerät.",
       "Fügen Sie über „Dienst hinzufügen“ Plugin-eigene API-Schlüssel-Dienste hinzu, mit lokalisierten Beschreibungen und Modellerkennung nach der Einrichtung.",
       "Autorisierte Plugin-Aktionen können den Composer-Entwurf ändern und lassen sich rückgängig machen; die Prompt-Verbesserung steckt jetzt in einem optionalen Plugin.",
       "Tool-Details bleiben eingeklappt, bis Sie sie öffnen, damit die fertige Antwort im Blick bleibt.",

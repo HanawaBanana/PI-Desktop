@@ -116,7 +116,7 @@ test("pending queue actions stay locked until admission succeeds", async (t) => 
           }
           throw new Error(`Unexpected IPC: ${channel}`);
         } } };
-        let state = { activeSessionId: "session-a", queuedPrompts: {}, showToast: assert.fail };
+        let state = { activeSessionId: "session-a", sessions: [{ id: "session-a", source: "desktop" }], queuedPrompts: {}, showToast: assert.fail };
         const slice = createQueueSlice({
           get: () => state,
           set: (patch) => { state = { ...state, ...(typeof patch === "function" ? patch(state) : patch) }; },
@@ -173,7 +173,7 @@ test("pending queue actions stay locked until admission succeeds", async (t) => 
         if (channel === IPC.invoke.agentQueueList) return { ok: true, data: { entries } };
         throw new Error(`Unexpected IPC: ${channel}`);
       } } };
-      let state = { activeSessionId: "session-a", queuedPrompts: {}, showToast: (message) => errors.push(message) };
+      let state = { activeSessionId: "session-a", sessions: [{ id: "session-a", source: "desktop" }], queuedPrompts: {}, showToast: (message) => errors.push(message) };
       const slice = createQueueSlice({
         get: () => state,
         set: (patch) => { state = { ...state, ...(typeof patch === "function" ? patch(state) : patch) }; },
@@ -232,7 +232,7 @@ test("editing a restored queue preserves attachments when resubmitted", async (t
           }
           throw new Error(`Unexpected IPC: ${channel}`);
         } } };
-        let state = { activeSessionId: "session-a", queuedPrompts: {}, showToast: assert.fail };
+        let state = { activeSessionId: "session-a", sessions: [{ id: "session-a", source: "desktop" }], queuedPrompts: {}, showToast: assert.fail };
         const slice = createQueueSlice({
           get: () => state,
           set: (patch) => { state = { ...state, ...(typeof patch === "function" ? patch(state) : patch) }; },

@@ -1317,7 +1317,8 @@ row 而不是在转录本中添加树镶边。
   报告用量的助手回合（D347）。占用、剩余容量、已用/窗口计数、本轮合计
   以及模型 input/output/cache/reasoning/命中率取该回合最新一条已报告用量
   的助手消息（最后一次模型请求），占用为
-  `input + output + reasoning + cacheRead + cacheWrite`（D355）；它们不是
+  `input + output + cacheRead + cacheWrite`（D355；`output` 已包含推理令牌，
+  因此不再重复加上 `reasoningTokens`）；它们不是
   视觉工具循环里每一次请求的加总。没有用量时不显示。触发器保留容量
   圆环和百分比，去掉重复的 `Context` 文字；引导数值（圆弧、百分比、令牌
   标签、弹层标题、tooltip 与 `aria-label`）跟随

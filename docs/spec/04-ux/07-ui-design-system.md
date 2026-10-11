@@ -1289,12 +1289,26 @@ Implementation: `components/ui.tsx → Checkbox`.
 
 | Property | Value |
 |---|---|
-| CSS class | `.ui-checkbox` |
+| CSS classes | `.ui-checkbox` (label), `.ds-checkbox` (native input) |
 | Anatomy | `<label> → <input type="checkbox"> + <span>{label}</span>` |
-| Props | Extends `InputHTMLAttributes` (minus `type`) + `label: ReactNode` |
+| Props | Extends `InputHTMLAttributes` (minus `type` and `ref`) + `label: ReactNode`, `indeterminate?: boolean` |
+| Paint | 18px rounded square, 8px label gap, token-based checked fill and checkmark; mixed state uses a dash |
+| Interaction | Native label activation and Space toggling, visible keyboard focus, whole-label disabled treatment; native paint in forced-colors mode |
 
 Every standalone labeled checkbox **must** use `Checkbox`. Inline
 `<label><input type="checkbox"/>…</label>` is prohibited.
+
+### 11.11a SettingsDisclosure
+
+Implementation: `components/settings/SettingsDisclosure.tsx`.
+
+Use native `<details>` / `<summary>` for low-frequency settings, with one
+localized title and a decorative chevron. It accepts native details attributes,
+children and `className`; `open` can seed or update the native state. Collapsed
+content stays mounted to retain drafts but is not keyboard-reachable. The
+shared summary has a minimum 44px row, token-based hover/focus treatment and
+reduced-motion-compatible chevron feedback. Errors, progress and approvals
+must remain outside optional disclosures.
 
 ### 11.11b CheckboxGroup
 

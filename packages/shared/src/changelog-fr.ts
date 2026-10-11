@@ -6,6 +6,7 @@ export const frEntries: ChangelogEntry[] = [
     "date": "2026-10-09",
     "highlights": [
       "Configurez le classificateur Jev de TypeSafe depuis Ajouter un service et vérifiez la clé API avant de l'enregistrer.",
+      "La synchronisation cloud est disponible dans les paramètres de la version empaquetée et porte la mention « expérimental ». Les listes de projets restent sur chaque appareil.",
       "Ajoutez depuis Ajouter un service des fournisseurs de plugins avec clé API, descriptions localisées et découverte des modèles après configuration.",
       "Les actions de plugins autorisées peuvent transformer le brouillon du Composer avec une annulation ; l'amélioration des prompts est désormais un plugin facultatif.",
       "Les détails des outils restent réduits jusqu'à leur ouverture, afin de garder la réponse terminée visible.",

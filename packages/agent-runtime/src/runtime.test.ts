@@ -11444,6 +11444,51 @@ describe("toolResultFromUi image restoration (issue #1073)", () => {
     expect(restored.content).toEqual(expected);
     await runtime.dispose();
   });
+
+  it("keeps embedded MCP text resources and resource links next to a status text block", async () => {
+    // github-mcp-server `get_file_contents` answers with a status line plus the
+    // file body as an embedded resource, and with a resource link for large files.
+    const rawContent = {
+      content: [
+        { type: "text", text: "successfully downloaded text file (SHA: abc123)" },
+        {
+          type: "resource",
+          resource: {
+            uri: "repo://acme/app/contents/src/index.ts",
+            mimeType: "text/plain",
+            text: "export const answer = 42;\n",
+          },
+        },
+        {
+          type: "resource_link",
+          uri: "https://raw.githubusercontent.com/acme/app/main/big.json",
+          name: "big.json",
+        },
+      ],
+      isError: false,
+    };
+    const host = {
+      call: vi.fn().mockImplementation((method: string) =>
+        Promise.resolve(
+          method === "project.instructions.resolve"
+            ? { entries: [] }
+            : { ok: true, content: rawContent },
+        ),
+      ),
+    };
+    const runtime = createRuntime({ host });
+    try {
+      const read = (runtime as any).toolCatalog.get("Read");
+      const result = await read.execute("resource-result", { path: "src/index.ts" });
+      expect(result.content).toHaveLength(1);
+      const text = result.content[0].text as string;
+      expect(text).toContain("successfully downloaded text file (SHA: abc123)");
+      expect(text).toContain("export const answer = 42;");
+      expect(text).toContain("https://raw.githubusercontent.com/acme/app/main/big.json");
+    } finally {
+      await runtime.dispose();
+    }
+  });
 });
 
 it("does not reuse stale plugin declarations when schema or permission metadata changes", async () => {

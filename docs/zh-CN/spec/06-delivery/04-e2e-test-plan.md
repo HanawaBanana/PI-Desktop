@@ -5621,7 +5621,7 @@ eleven-tool-round desktop paths are verified by
 | C / F — Hourly task updates | E2E-SCHEDULED-manual-to-hourly |
 | C / F / Quality — Saved project isolation | E2E-SCHEDULED-manual-workspace-binding |
 | C / F / Quality — 桌面定时任务 | E2E-SCHEDULED-desktop-automation-lifecycle |
-| F / Security / Quality — 便携式配置同步 | E2E-CONFIG-SYNC-webdav-portable-configuration |
+| F / Security / Quality — Portable configuration sync | E2E-CONFIG-SYNC-s3-portable-configuration |
 | A / C — Unicode stdio 成帧 | E2E-RPC-unicode-separators |
 | C / G / Quality — Plugins navigation | E2E-NAV-plugins-button-goes-back |
 | C / D / Quality — 侧边栏行状态 | E2E-LAYOUT-sidebar-row-states |
@@ -5982,7 +5982,7 @@ eleven-tool-round desktop paths are verified by
 - 打开设置（页脚配置文件 → 设置）。
 - 预计**全页**设置（无应用程序 sidebar/nav）。左导轨有返回应用、搜索，以及常规、AI、
   快捷键、指令、模型、技能、MCP、子智能体、项目、云同步、远程主机、信息，
-  按该顺序排列（打包构建不显示云同步）；内容窗格显示所选设置页或
+  按该顺序排列（云同步和远程主机在打包版均显示实验性标签）；内容窗格显示所选设置页或
   项目存档。
 - 返回应用程序外壳并期望插件保持独立
   侧边栏页脚目的地。
@@ -6167,7 +6167,7 @@ eleven-tool-round desktop paths are verified by
 - 在约 1200×690 的窗口中打开浅色主题的“设置 → 常规”。
 - 侧栏宽度约 275 像素，背景为 `#f4f4f4`，常规项为唯一选中项，并显示返回和搜索。
 - 主题选择器可正常使用，且没有无效开关或打开目标行。
-- “常规”页显示外观卡片，“AI”页显示权限和默认值卡片。核心侧栏依次包含常规、AI、快捷键、指令、模型、技能、MCP、子智能体、项目、云同步（仅开发构建）和信息；仅开发者模式显示远程主机。开发版且开启开发者模式时，AI 与快捷键之间可能显示语音；插件扩展目的地位于核心分组之后。侧栏不再有“导入”入口。
+- “常规”页显示外观卡片，“AI”页显示权限和默认值卡片。核心侧栏依次包含常规、AI、快捷键、指令、模型、技能、MCP、子智能体、项目、云同步、远程主机和信息；云同步与远程主机在所有构建中都显示实验性标签。开发版且开启开发者模式时，AI 与快捷键之间可能显示语音；插件扩展目的地位于核心分组之后。侧栏不再有“导入”入口。
 - 在 800、1200 和 1600 像素宽度之间调整窗口；内容卡片填充
   每种尺寸都可用右窗格，无需更换导轨或引入
   水平滚动。
@@ -8939,15 +8939,40 @@ the latest destination. These assertions measure work counts, not device FPS.
 - **状态：** `node scripts/e2e-scheduled.mjs` 自动化覆盖；按 AGENTS.md 在任务候选
   版本上运行，并记录已测提交与基线。
 
-### E2E-CONFIG-SYNC-webdav-portable-configuration
+<a id="e2e-config-sync-webdav-portable-configuration"></a>
 
-- **前提：** 已构建的任务候选版本、隔离的 Host 配置（开发者模式默认关闭，用来验证开发构建下的目的地），以及支持 strong ETag 和条件 PUT 的本地 WebDAV fixture，另有忽略条件头但支持 `PROPFIND` 目录列举的 fixture 变体。不使用真实 WebDAV 账户、provider 或生产桌面。
-- **步骤：** 1）在开发构建中、开发者模式关闭的情况下打开设置，确认“云同步”出现在导轨中且设置搜索能命中它；打开该页，确认导轨行和页面标题都不带实验性徽章。2）开关一次开发者模式，确认该目的地始终可用且可见性不变。3）填写 fixture URL、设备标签、目录和备份密码。4）运行能力测试，确认使用临时对象。5）选择 provider/MCP/skill 类别，保持凭据和 memory 未选中；在第二次预览中启用凭据，确认只显示脱敏计数。6）配置设备 A，创建 user provider 和 MCP 定义并同步。7）让设备 B 连接同一 vault，同步后检查待激活/映射，并验证审批前不会运行命令或任务。8）批准一个变更后的安全实体，拒绝一个暂存实体，在两台设备上编辑不相交设置并再次同步。9）测试并发 head writer、错误密码、weak ETag、密文损坏、redirect、归档路径穿越和网络中断。10）使用回环／私有地址的 fixture 勾选“允许在受信任的内网地址使用 HTTP”，确认刷新状态后仍保留；即使勾选，公网 HTTP 地址也必须被拒绝。
-- **预期：** 云同步在开发构建中、开发者模式关闭时即可访问，打包构建的导轨、页面和设置搜索都不含它，且导轨行与页面标题都不带实验性徽章；开关开发者模式既不改变入口可见性也不改变同步行为。测试拒绝不可靠的条件写入。HTTP 默认关闭，仅允许 localhost、`.local` 或私有／链路本地地址；公网 HTTP 地址会被拒绝，界面会提示凭据暴露风险。若 fixture 探测到该 endpoint 对不存在对象返回 502，后续只兼容该 endpoint 的这一行为；忽略条件头的服务器仍必须标记为不受支持。WebDAV 只能看到已认证的密文和不透明对象名；原始秘密不会出现在 Renderer 状态或日志中。相同和不相交的编辑会收敛，冲突保持可审查，明确删除使用 tombstone，类别退出不是删除，可执行导入在本地审批和映射前保持不激活。恢复不会暴露部分应用的本地配置。
-- **规格：** `04-ux/06-settings-ia.md`、`03-runtime/22-config-sync.md`、`03-runtime/14-secrets-storage.md`、`05-security/01-security.md`、ADR 0300。
-- **验收：** F（持久化）、Security、Quality。
-- **里程碑：** M6+。
-- **状态：** Draft；合并/密码学和进程内 WebDAV 条件写入覆盖已存在。云同步仅开发构建可见、打包构建省略该目的地由 `apps/desktop/test/settings-developer-only-destinations.test.mjs` 断言；完整双设备进程路径和逐检查点本地恢复故障注入仍待自动化。
+### E2E-CONFIG-SYNC-s3-portable-configuration
+
+Follow the [current S3 acceptance scenario](/spec/06-delivery/04-e2e-test-plan#e2e-config-sync-s3-portable-configuration).
+
+- Use separate Host processes, data directories, HOME and agent directories.
+  Local S3 fixtures exercise conditional writes, authentication, merge,
+  conflict choices and repeated convergence, deletions, credential opt-out,
+  approval and skill resources.
+- 项目和项目组列表保留在本机，不提供 projects 同步类别。发布项目/项目组元数据
+  不会在接收设备创建或修改项目/项目组；接收设备自行注册 workspace 后，映射并
+  审批项目级技能，验证资源成功到达而本机项目组名称、根目录及排序保持不变。
+  同步/恢复忽略旧 vault 的 `projects` 实体，保留本机项目和云端历史。
+- Backup only uploads local snapshots; histories are mode-specific. Sync
+  restore publishes with explicit acknowledgment; backup restore stays local.
+- The real settings-page test covers secret-free drafts, saved credential reuse,
+  explicit token clearing, mode selection, restore confirmation, stale history
+  responses and disconnect. Development-build-only visibility remains unchanged.
+- Live S3 is explicitly opt-in and authorized. Read credentials without logging
+  or copying them; use a fresh random prefix, verify initial emptiness, clean
+  only test-created objects and verify final emptiness. Never use the running
+  desktop or real model providers. Record the tested candidate/base.
+- A 30-entry history index does not imply physical garbage collection. Only
+  the new S3 format is supported, without legacy detection or migration;
+  unrelated data is not deleted. Recovery is not whole-filesystem atomicity.
+- Automation: `pnpm test:e2e:config-sync`, Rust `config_sync::` and
+  `user_skills::`, `config-sync-user-path.test.mjs`, `config-sync-ipc.test.mjs`.
+  Full checkpoint-recovery fault injection is not claimed by these user paths.
+- Start a held manual sync, leave Settings, then return. Verify Host still
+  reports `syncing`, duplicate actions remain disabled, and releasing the local
+  fixture finishes the operation and refreshes state. The aggregate RPC has no
+  deadline; individual S3 requests remain bounded.
+- Acceptance: F (persistence), Security, Quality. Candidate validation required.
 
 ### E2E-DIALOG-long-text-boundaries
 
@@ -9242,8 +9267,9 @@ the latest destination. These assertions measure work counts, not device FPS.
 - 自动化覆盖：`pnpm test:e2e:settings-scroll` 在隔离 Electron 中挂载真实的
   SettingsPage、store、翻译和构建后的 CSS，探针运行的是开发构建。仅 preload
   数据使用 fixture；搜索导航调用 SearchDialog 使用的公开 store 入口。该测试还
-  检查云同步仍是仅开发构建可见的目的地（无开发者模式门控、无实验性徽章），远程
-  主机保留其徽章，以及回落到常规。该测试覆盖渲染层交互，不覆盖 host 持久化或
+  检查开发版中云同步与远程主机的实验性标签；`settings-developer-only-destinations.test.mjs`
+  另行验证打包版可见性、搜索结果及仅开发者目的地的回落行为。该测试覆盖渲染层交互，
+  不覆盖 host 持久化或
   完整全局搜索弹窗。
 
 ### E2E-SCHEDULED-dispatch

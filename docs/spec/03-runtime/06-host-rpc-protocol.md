@@ -625,7 +625,10 @@ message appends in its application-owned outbox while host-core is restarting;
 the outbox flushes in order after a successful handshake and treats
 `UNIQUE constraint failed: messages.id` as an ack rather than pausing the
 queue. A `PERMISSION_DENIED:` append is dropped the same way so a poison head
-cannot stall the FIFO (D597). A missing sessions row is restored from the live JSONL (or created as a
+cannot stall the FIFO (D597). An append the outbox cannot classify is retried
+on a bounded backoff and then quarantined to an application-owned dead-letter
+file instead of holding that head, so one refused append cannot stall every
+session's writes (D656). A missing sessions row is restored from the live JSONL (or created as a
 stub under the same id when the file is gone) so a queued outbox can drain
 (D318). `session.delete` drops that session's outbox entries. In-flight
 checkpoints never go through the outbox: a checkpoint is only meaningful
@@ -1308,28 +1311,37 @@ The Host exposes the `configSync.getState`, `configSync.test`,
 `configSync.mapProject`, `configSync.listHistory`, `configSync.restore`,
 `configSync.changePassword`, and
 `configSync.disconnect` methods through the existing Electron Host bridge.
-These methods operate on the Host-owned encrypted vault and the explicit
-portable-domain adapter registry. They do not expose raw secrets or local
-filesystem bindings to the Renderer.
+These methods operate on the Host-owned encrypted S3 vault and explicit
+portable-domain adapters. Connection input uses `endpoint`, `region`, `bucket`,
+`prefix`, `accessKeyId`, optional `secretAccessKey` and `sessionToken`,
+`pathStyle`, and `mode: "sync" | "backup"`. The former WebDAV fields are
+rejected. Omitted credential fields mean reuse for the exact connection;
+an empty token clears it. Responses contain no secrets or vault keys.
 
-`configSync.test` performs a capability probe against a temporary remote
-object and reports whether reliable strong conditional writes are available.
-`configSync.syncNow` and the five-minute automatic poll serialize per vault,
-reconcile against the last acknowledged base, publish immutable encrypted
-objects followed by a conditional head update, and retain unresolved
-conflicts/security-sensitive imports as pending state. A failed head
-precondition restarts from the newly read head; it never overwrites blindly.
+`configSync.test` proves reliable conditional writes with a random temporary
+object and verifies cleanup. It returns `{ ok: true, conditionalWrites: true }`
+or an error, never an append-only capability result. `configure` performs the
+same probe and creates or unlocks the vault without applying remote settings.
 
-`configSync.listHistory` returns revision IDs, creation timestamps, parent IDs,
-and counts without decrypting data in the Renderer. `configSync.restore` requires
-an explicit propagation acknowledgement, writes an encrypted local recovery
-point, publishes a new head with a CAS, and keeps executable/security-sensitive
-entities pending until local approval. `configSync.changePassword` updates the
-wrapped-key header with a strong-ETag CAS; it does not revoke copied old vault
-keys.
+`configSync.syncNow` runs the saved mode. Sync reconciles shared, observed and
+remote state before conditional publication and local application. Backup
+publishes only a local snapshot to its separate head. Publication precondition
+failures restart from the latest head, never an unconditional overwrite.
 
-The public result is a redacted state snapshot. `configSync.changed` is a Host
-notification carrying that same snapshot. Approval and rejection require the
-current entity digest, so a security-relevant edit cannot reuse an older local
-decision. Disconnect deletes only local credentials, vault keys, metadata and
-staging files; remote objects remain intact.
+`configSync.syncNow` has no aggregate request deadline: the Host owns the
+multi-step operation, and renderer route navigation does not cancel it. A
+reopened Settings page reads the Host's current `syncing` state. Individual S3
+requests remain bounded; Host shutdown is still the lifecycle boundary.
+
+`configSync.listHistory` returns at most 30 indexed entries for the saved mode.
+It returns metadata only, and is not broadcast as a `configSync.changed` state.
+Sync `restore` requires `acknowledgePropagation: true` and publishes a new
+shared revision. Backup restore is local only and leaves remote heads intact.
+Both save a local recovery point and keep sensitive activation pending.
+`changePassword` CAS-rewraps the same key; it does not revoke unlocked devices.
+
+State responses and `configSync.changed` include `mode` and S3 connection
+metadata. Approval/rejection remain digest-bound. Only the new S3 format is
+supported; there is no old-data detection or migration. Disconnect removes
+only current S3 credentials, keys and local sync metadata/staging; unrelated
+files and remote objects remain intact. See `22-config-sync.md`.

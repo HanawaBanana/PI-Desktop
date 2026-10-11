@@ -1,3 +1,6 @@
+import { useChatSessionCapability } from "./use-chat-session-capability";
+import { sessionAllows } from "../lib/remote-session-safety";
+import { useSlotSessionId } from "../plugins/renderer-slots/use-slots";
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { isActiveInProject } from "@pi-desktop/shared";
@@ -25,9 +28,11 @@ import {
  * open destination setting.
  */
 export function useOpenPreviewTarget() {
+  const localToolsAllowed = useChatSessionCapability("canUseLocalTools");
   const openFileRef = useOpenChatFileRef();
   return useCallback(
     (target: ChatPreviewTarget) => {
+      if (!localToolsAllowed) return;
       if (target.kind === "file") {
         return openFileRef(target.path, undefined, undefined, {
           line: target.line,
@@ -40,7 +45,7 @@ export function useOpenPreviewTarget() {
       }
       openHttpUrl(target.url);
     },
-    [openFileRef],
+    [localToolsAllowed, openFileRef],
   );
 }
 
@@ -141,6 +146,7 @@ async function ensureFileManagerView(workspacePath: string | null): Promise<bool
 }
 
 function useResolveChatFileRef() {
+  const paneSessionId = useSlotSessionId();
   const { t } = useTranslation();
   const workspacePath = useAppStore((s) => s.workspace?.path ?? null);
   const sessionId = useAppStore((s) => s.activeSessionId);
@@ -151,6 +157,10 @@ function useResolveChatFileRef() {
       path: string,
       baseDir?: string,
     ): Promise<ResolvedChatFileRef | null> => {
+      const state = useAppStore.getState();
+      const ownerId = paneSessionId || state.activeSessionId;
+      const session = state.sessions.find((item) => item.id === ownerId);
+      if (!sessionAllows(session ?? (ownerId?.startsWith("remote:") ? { id: ownerId } : undefined), "canUseLocalTools")) return null;
       const raw = String(path ?? "").trim();
       if (!raw) return null;
       // `./x` and `../x` are the one shape the caller resolves better than the
@@ -195,7 +205,7 @@ function useResolveChatFileRef() {
         primary,
       };
     },
-    [sessionId, showToast, t, workspacePath],
+    [paneSessionId, sessionId, showToast, t, workspacePath],
   );
 }
 

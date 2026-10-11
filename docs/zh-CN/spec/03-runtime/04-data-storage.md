@@ -1363,7 +1363,12 @@ UI投影损失
 `{sessionId}:{id}`；重放原始 id 对该改写行无操作。outbox 将
 `UNIQUE constraint failed: messages.id` 当作确认并继续排空（D444）。带
 `PERMISSION_DENIED:` 前缀的永久拒绝同样丢弃该行以便 FIFO 继续；
-`PLUGIN_PERMISSION_DENIED` 和其他宿主失败仍暂停（D597）。1024 条上限在尝试 flush 后仍满时，
+`PLUGIN_PERMISSION_DENIED` 和其他宿主失败在其重试额度内仍暂停（D597）。无法归类的失败在同
+一 Host 代内按有界退避重试（5 秒起、翻倍、上限 60 秒），连续五次失败后写入
+`session-message-outbox.dead-letter.json`（保留载荷、sessionId、隔离时间与宿主错误，最多
+保留最新 256 条，超出丢最旧），随后继续排空，因此单个无法归类的队头不会饿死所有会话的
+写入（D656）；Host 重启属于新代，会立即重试该队头。隔离条目不会自动重放，
+`session.delete` 会连同该会话的隔离条目一起删除。1024 条上限在尝试 flush 后仍满时，
 enqueue 会记录被拒 key/session 并 reject，不会谎报已入队；通用外键错误不会被当作确认。
 向已认领的协作投递回合做 steering 是额外的人类输入：必须指向该投递的会话，
 不受投递内容/附件契约约束，不继承投递来源，并清掉客户端带来的

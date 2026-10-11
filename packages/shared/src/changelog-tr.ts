@@ -6,6 +6,7 @@ export const trEntries: ChangelogEntry[] = [
     "date": "2026-10-09",
     "highlights": [
       "TypeSafe Jev sınıflandırıcısını Hizmet Ekle'den kurun ve kaydetmeden önce API anahtarını doğrulayın.",
+      "Bulut eşitlemesi paketlenmiş sürümün ayarlarında kullanılabilir ve deneysel olarak işaretlenir. Proje listeleri her cihazda yerel olarak kalır.",
       "Yerelleştirilmiş açıklamalar ve anahtar kurulumundan sonra model keşfiyle eklenti kaynaklı API anahtarlı hizmetleri ekleyin.",
       "İzin verilen eklenti işlemleri Composer taslağını dönüştürebilir ve geri alınabilir; istem iyileştirme artık isteğe bağlı bir eklentide sunulur.",
       "Yanıt görünür kalsın diye araç ayrıntıları siz açana kadar kapalı kalır.",

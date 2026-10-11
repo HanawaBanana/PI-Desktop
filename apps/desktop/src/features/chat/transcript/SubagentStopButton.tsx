@@ -1,3 +1,5 @@
+import { useChatSessionCapability } from "../../../hooks/use-chat-session-capability";
+import { useSlotSessionId } from "../../../plugins/renderer-slots/use-slots";
 import { useEffect } from "react";
 import { create } from "zustand";
 import { useTranslation } from "react-i18next";
@@ -24,7 +26,9 @@ export function SubagentStopButton({
   compact?: boolean;
 }) {
   const { t } = useTranslation();
-  const sessionId = useAppStore(state => state.activeSessionId);
+  const paneSessionId = useSlotSessionId();
+  const localToolsAllowed = useChatSessionCapability("canUseLocalTools");
+  const sessionId = useAppStore(state => paneSessionId || state.activeSessionId);
   const source = useAppStore(state => state.sessions.find(session => session.id === state.activeSessionId)?.source);
   const busy = useStops(state => sessionId ? state.busy[sessionId] : undefined);
   const pending = useStops(state => sessionId ? state.pending[sessionId] : undefined);
@@ -37,7 +41,7 @@ export function SubagentStopButton({
       [sessionId]: (state.pending[sessionId] ?? []).filter(id => id !== delegationId),
     } }));
   }, [running, sessionId, delegationId, stopping]);
-  if (!running || !sessionId || source === "remote" || source === "pi-native") return null;
+  if (!running || !localToolsAllowed || !sessionId || source === "remote" || source === "pi-native") return null;
 
   const stop = async () => {
     if (useStops.getState().busy[sessionId]) return;

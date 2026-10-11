@@ -163,12 +163,15 @@ by path/hash.
 
 ### 1.3 Portable configuration sync
 
-Host-core stores sync configuration in the `configSync` key-value namespace.
-The vault key reference and WebDAV password use the existing encrypted secret
-store. `config-sync/base.bin` and `config-sync/pending.bin` are authenticated
-encrypted bundles replaced with temp-file rename; they are not renderer- or
-sidecar-readable files. Sync revisions and resources remain remote immutable
-objects and do not change the SQLite schema or transcript retention.
+Host Core stores S3 configuration at `configSyncS3/config` in the key-value
+store. Credentials and the vault key use existing encrypted secret storage.
+`config-sync/s3/<state-id>/base.bin` stores shared and observed baselines;
+`pending.bin` and local recovery points are also authenticated encrypted
+bundles replaced through temp-file rename. Connection or mode changes create
+a fresh state ID. The legacy `configSync` namespace, old credentials and old
+files are preserved, not migrated or deleted. Remote immutable objects remain
+indefinitely; only the mode-specific history index is capped at 30 revisions.
+This does not change the SQLite schema or transcript retention.
 
 ### 2.0 Message-owned review snapshots (ADR 0043)
 
@@ -1712,7 +1715,16 @@ no-op against that remapped row. The outbox treats
 `UNIQUE constraint failed: messages.id` as an ack and keeps draining (D444).
 A permanently rejected append whose host error carries a `PERMISSION_DENIED:`
 prefix is likewise dropped so the FIFO can continue; `PLUGIN_PERMISSION_DENIED`
-and other host failures still pause (D597). When the 1024-entry cap remains
+and other host failures still pause while their retry budget lasts (D597). A
+failure the outbox cannot classify is retried within the same host generation
+on a bounded backoff (5s doubling to 60s) and quarantined after five
+consecutive failures into `session-message-outbox.dead-letter.json` (newest 256
+appends, oldest discarded first), carrying its payload, session id, timestamp,
+and host error, so one unclassifiable head cannot starve every session's writes
+(D656). A restarted host is a new generation and retries the head at once.
+Quarantined appends are never replayed automatically, and `session.delete`
+drops that session's quarantined appends too.
+When the 1024-entry cap remains
 full after a flush attempt, enqueue logs the rejected key/session and rejects;
 it does not report that entry as queued. Generic foreign-key errors are not
 treated as acknowledgements. Steering into a claimed collaboration delivery

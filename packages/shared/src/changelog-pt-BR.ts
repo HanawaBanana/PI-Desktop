@@ -6,6 +6,7 @@ export const ptBREntries: ChangelogEntry[] = [
     "date": "2026-10-09",
     "highlights": [
       "Configure o classificador Jev da TypeSafe em Adicionar serviço e valide a chave de API antes de salvá-la.",
+      "A sincronização na nuvem está disponível nas configurações da versão empacotada e é identificada como experimental. As listas de projetos permanecem em cada dispositivo.",
       "Adicione em Adicionar serviço provedores de plugins com chave de API, descrições localizadas e descoberta de modelos após a configuração.",
       "Ações autorizadas de plugins podem transformar o rascunho do Composer com opção de desfazer; o aprimoramento de prompts agora é um plugin opcional.",
       "Os detalhes das ferramentas ficam recolhidos até serem abertos, mantendo a resposta concluída visível.",

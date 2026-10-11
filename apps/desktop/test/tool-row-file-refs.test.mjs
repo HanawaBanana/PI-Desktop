@@ -4,6 +4,7 @@ import test from "node:test";
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import ts from "typescript";
+import { isRemoteSession, safeSessionSummary, sessionAllows } from "../src/lib/remote-session-safety.ts";
 
 /*
  * The opener a tool row's summary and a tool result's file/match list call.
@@ -48,6 +49,7 @@ const state = {
   workspace: { path: "C:/project" },
   activeSessionId: "session-1",
   pluginViews: [],
+  sessions: [],
   openFileInWorkPanel: (...args) => calls.files.push(args),
   openUrlInWorkPanel: (...args) => calls.urls.push(args),
   openWorkPanelTab: (tab) => calls.tabs.push(tab),
@@ -114,6 +116,9 @@ const { useOpenPreviewTarget } = loadModule("../src/hooks/use-preview-target.ts"
   }),
   "../lib/open-http-url": { openHttpUrl: (...args) => calls.urls.push(args) },
   "../lib/work-panel-tabs": workPanelTabs,
+  "./use-chat-session-capability": { useChatSessionCapability: () => true },
+  "../lib/remote-session-safety": { isRemoteSession, safeSessionSummary, sessionAllows },
+  "../plugins/renderer-slots/use-slots": { useSlotSessionId: () => "" },
 });
 
 const flush = () => new Promise((resolve) => setImmediate(resolve));
